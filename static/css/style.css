@@ -1,0 +1,20 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.indicador {
+    transition: transform 0.2s;
+}
+
+.indicador:hover {
+    transform: translateY(-3px);
+}
+
+.indicador h2 {
+    font-weight: bold;
+}

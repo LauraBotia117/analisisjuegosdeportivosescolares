@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}
+Dimensión Territorial
+{% endblock %}
+
+{% block content %}
+
+<div class="mb-4">
+
+    <h1>
+        Dimensión territorial
+    </h1>
+
+    <p class="lead">
+        Distribución de los registros de participación
+        entre los diferentes territorios.
+    </p>
+
+</div>
+
+
+<!-- Pregunta -->
+
+<div class="card mb-4">
+
+    <div class="card-body">
+
+        <h5 class="card-title">
+            Pregunta de análisis
+        </h5>
+
+        <p class="card-text">
+            ¿Cómo se distribuyen los registros de participación
+            en los Juegos Deportivos Institucionales Escolares
+            entre las diferentes subregiones y municipios,
+            y qué diferencias territoriales pueden identificarse?
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- FILTROS -->
+
+<div class="card mb-4">
+
+    <div class="card-body">
+
+        <h5 class="card-title">
+            Filtros
+        </h5>
+
+        <form method="GET" action="{{ url_for('territorial') }}">
+
+            <div class="row">
+
+                <!-- Año -->
+
+                <div class="col-md-5">
+
+                    <label class="form-label">
+                        Año
+                    </label>
+
+                    <select
+                        name="año"
+                        class="form-select"
+                    >
+
+                        <option value="Todos">
+                            Todos
+                        </option>
+
+                        {% for año in años %}
+
+                        <option
+                            value="{{ año }}"
+                            {% if año_seleccionado == año|string %}selected{% endif %}
+                        >
+                            {{ año }}
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <!-- Subregión -->
+
+                <div class="col-md-5">
+
+                    <label class="form-label">
+                        Subregión
+                    </label>
+
+                    <select
+                        name="subregion"
+                        class="form-select"
+                    >
+
+                        <option value="Todas">
+                            Todas
+                        </option>
+
+                        {% for subregion in subregiones_lista %}
+
+                        <option
+                            value="{{ subregion }}"
+                            {% if subregion_seleccionada == subregion %}selected{% endif %}
+                        >
+                            {{ subregion }}
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <div class="col-md-2 d-flex align-items-end">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100"
+                    >
+                        Aplicar
+                    </button>
+
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- INDICADORES -->
+
+<div class="row mb-4">
+
+    <div class="col-md-4">
+
+        <div class="card indicador">
+
+            <div class="card-body text-center">
+
+                <h6>
+                    Total de registros
+                </h6>
+
+                <h2>
+                    {{ "{:,}".format(total_registros).replace(",", ".") }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col-md-4">
+
+        <div class="card indicador">
+
+            <div class="card-body text-center">
+
+                <h6>
+                    Municipios
+                </h6>
+
+                <h2>
+                    {{ municipios }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col-md-4">
+
+        <div class="card indicador">
+
+            <div class="card-body text-center">
+
+                <h6>
+                    Subregiones
+                </h6>
+
+                <h2>
+                    {{ subregiones }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- GRÁFICA 1 -->
+
+<div class="card mb-4">
+
+    <div class="card-body">
+
+        {{ grafica_subregion|safe }}
+
+        <h5>
+            Interpretación
+        </h5>
+
+        <p>
+            La distribución de los registros no es uniforme entre
+            las subregiones. Algunas concentran una cantidad
+            considerablemente mayor de registros que otras,
+            permitiendo identificar diferencias territoriales.
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- GRÁFICA 2 -->
+
+<div class="card mb-4">
+
+    <div class="card-body">
+
+        {{ grafica_municipios|safe }}
+
+        <h5>
+            Interpretación
+        </h5>
+
+        <p>
+            Los registros presentan diferencias entre municipios.
+            Algunos territorios concentran una mayor cantidad de
+            registros dentro del conjunto de datos.
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- GRÁFICA 3 -->
+
+<div class="card mb-4">
+
+    <div class="card-body">
+
+        {{ grafica_genero|safe }}
+
+        <h5>
+            Interpretación
+        </h5>
+
+        <p>
+            La distribución territorial también presenta
+            diferencias en la composición de los registros
+            según género.
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- LIMITACIÓN -->
+
+<div class="alert alert-warning">
+
+    <h5>
+        Limitación del análisis
+    </h5>
+
+    <p>
+        La cantidad de registros no representa necesariamente
+        la cantidad de personas participantes, debido a que un
+        mismo deportista puede aparecer en diferentes registros.
+        Además, no se consideran variables externas como la
+        población total de cada municipio o el número de
+        estudiantes potencialmente participantes.
+    </p>
+
+</div>
+
+{% endblock %}

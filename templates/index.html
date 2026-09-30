@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}
+Inicio - Análisis de Datos
+{% endblock %}
+
+{% block content %}
+
+<div class="text-center py-5">
+
+    <h1 class="display-5 fw-bold">
+        Análisis de Datos
+    </h1>
+
+    <p class="lead">
+        Histórico de participaciones en Juegos Deportivos
+        Institucionales Escolares
+    </p>
+
+    <p>
+        Aplicación web desarrollada con Python, Flask y Bootstrap.
+    </p>
+
+    <a
+        href="{{ url_for('territorial') }}"
+        class="btn btn-primary"
+    >
+        Ver dimensión territorial
+    </a>
+
+</div>
+
+{% endblock %}
