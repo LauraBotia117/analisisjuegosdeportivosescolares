@@ -1,20 +1,20 @@
 body {
-    background-color: #f8f9fa;
+    background-color: #ffffff;
 }
 
-.card {
-    border: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+h1 {
+    margin-bottom: 10px;
 }
 
-.indicador {
-    transition: transform 0.2s;
+h5 {
+    margin-top: 20px;
+    margin-bottom: 10px;
 }
 
-.indicador:hover {
-    transform: translateY(-3px);
+hr {
+    margin: 25px 0;
 }
 
-.indicador h2 {
-    font-weight: bold;
+.nav-link {
+    margin-left: 10px;
 }
