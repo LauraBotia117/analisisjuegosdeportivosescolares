@@ -260,7 +260,7 @@ def temporal():
     fig_muni.update_xaxes(dtick=1)
 
     # -----------------------------
-    # CONCLUSIONES AUTOMÁTICAS
+    # CONCLUSIONES 
     # -----------------------------
     conclusiones = []
 
