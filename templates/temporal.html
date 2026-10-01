@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Análisis Temporal{% endblock %}
+
+{% block content %}
+
+<h1>Análisis temporal</h1>
+<p class="text-muted">
+    ¿Cómo ha cambiado el comportamiento de la población durante el periodo disponible?
+</p>
+
+<hr>
+
+<!-- INDICADORES -->
+<div class="row text-center mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Periodo analizado</h6>
+                <h3>{{ anio_min }} – {{ anio_max }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Año con más registros</h6>
+                <h3>{{ anio_pico }}</h3>
+                <small class="text-muted">{{ "{:,}".format(registros_pico) }} registros</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Año con menos registros</h6>
+                <h3>{{ anio_valle }}</h3>
+                <small class="text-muted">{{ "{:,}".format(registros_valle) }} registros</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Cambio {{ anio_min }} → {{ anio_max }}</h6>
+                <h3 class="{{ 'text-success' if cambio_total >= 0 else 'text-danger' }}">
+                    {{ "%+.1f"|format(cambio_total) }}%
+                </h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GRÁFICA 1 -->
+<h5>1. Evolución total de la participación</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">{{ grafica_total|safe }}</div>
+</div>
+
+<!-- GRÁFICA 2 -->
+<h5>2. Variación porcentual respecto al año anterior</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">{{ grafica_variacion|safe }}</div>
+</div>
+
+<!-- GRÁFICA 3 -->
+<h5>3. Evolución por género</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">{{ grafica_genero|safe }}</div>
+</div>
+
+<!-- GRÁFICA 4 -->
+<h5>4. Evolución por subregión</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">{{ grafica_subregion|safe }}</div>
+</div>
+
+<!-- GRÁFICA 5 -->
+<h5>5. Cobertura territorial: municipios con participación por año</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">{{ grafica_municipios|safe }}</div>
+</div>
+
+<!-- CONCLUSIONES -->
+<h5>Conclusiones</h5>
+<div class="card shadow-sm mb-5">
+    <div class="card-body">
+        <ul class="mb-0">
+            {% for c in conclusiones %}
+            <li>{{ c }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+{% endblock %}
