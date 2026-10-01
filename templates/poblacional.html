@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Dimensión poblacional{% endblock %}
+
+{% block content %}
+
+<h1>Dimensión poblacional</h1>
+
+<p>
+    Composición y distribución de la población participante en los Juegos
+    Deportivos Institucionales Escolares (2021–2025).
+</p>
+
+<hr>
+
+<h5>Pregunta de análisis</h5>
+
+<p>
+    ¿Cómo está compuesta y distribuida la población analizada según sus
+    principales características?
+</p>
+
+
+<h5>Variables utilizadas</h5>
+
+<table class="table table-sm">
+    <thead>
+        <tr><th>Variable</th><th>Descripción</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>id_deportista</td><td>Código asignado a cada deportista. Se usa solo para contar deportistas únicos.</td></tr>
+        <tr><td>genero</td><td>Género del participante (Hombre o Mujer).</td></tr>
+        <tr><td>rango_edad</td><td>Rango de edad agrupado (8 a 11, 12 a 15, 16 a 19, 20 a 23 o No registra).</td></tr>
+        <tr><td>deporte</td><td>Disciplina deportiva en la que participó.</td></tr>
+        <tr><td>tipo_deporte</td><td>Modalidad: conjunto o individual.</td></tr>
+        <tr><td>etapa</td><td>Fase del evento: subregional o final.</td></tr>
+        <tr><td>año</td><td>Año de participación (se usa como filtro).</td></tr>
+        <tr><td>Población ... (7 columnas)</td><td>Indican si el registro pertenece a una población diferencial: desplazamiento, campesina, discapacidad, reincorporación, migrante, víctima y LGTBI.</td></tr>
+    </tbody>
+</table>
+
+<hr>
+
+<h5>Filtros</h5>
+
+<form method="GET" action="{{ url_for('poblacional') }}">
+    <div class="row">
+
+        <div class="col-md-4">
+            <label>Año</label>
+            <select name="año" class="form-select">
+                <option value="Todos">Todos</option>
+                {% for a in años %}
+                <option value="{{ a }}" {% if año_seleccionado == a|string %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label>Etapa</label>
+            <select name="etapa" class="form-select">
+                <option value="Todas">Todas</option>
+                {% for e in etapas %}
+                <option value="{{ e }}" {% if etapa_seleccionada == e %}selected{% endif %}>{{ e }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-dark">Filtrar</button>
+        </div>
+
+    </div>
+</form>
+
+<hr>
+
+{% if not hay_datos %}
+
+<div class="alert alert-warning">
+    No hay registros para la combinación de filtros seleccionada.
+    Por ejemplo, en 2024 no hay registros de la etapa Final. Prueba con otra combinación.
+</div>
+
+{% else %}
+
+<h5>Indicadores</h5>
+
+<div class="row">
+    <div class="col-md-3">
+        <p><strong>Total de registros:</strong><br>{{ "{:,}".format(total_registros).replace(",", ".") }}</p>
+    </div>
+    <div class="col-md-3">
+        <p><strong>Deportistas únicos:</strong><br>{{ "{:,}".format(deportistas_unicos).replace(",", ".") }}</p>
+    </div>
+    <div class="col-md-3">
+        <p><strong>Deportes distintos:</strong><br>{{ deportes }}</p>
+    </div>
+    <div class="col-md-3">
+        <p><strong>Participación de mujeres:</strong><br>{{ "%.1f"|format(pct_mujeres) }}%</p>
+    </div>
+</div>
+
+<hr>
+
+<h5>Participación por categoría</h5>
+
+<table class="table table-sm table-striped">
+    <thead>
+        <tr><th>Variable</th><th>Categoría</th><th>Registros</th><th>Porcentaje</th></tr>
+    </thead>
+    <tbody>
+        {% for f in tabla_categorias %}
+        <tr>
+            <td>{{ f.variable }}</td>
+            <td>{{ f.categoria }}</td>
+            <td>{{ "{:,}".format(f.registros).replace(",", ".") }}</td>
+            <td>{{ "%.1f"|format(f.porcentaje) }}%</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<hr>
+
+<h5>1. Distribución por género</h5>
+{{ grafica_genero|safe }}
+<p><strong>Interpretación:</strong> {{ interpretaciones.genero }}</p>
+
+<hr>
+
+<h5>2. Distribución por rango de edad</h5>
+{{ grafica_edad|safe }}
+<p><strong>Interpretación:</strong> {{ interpretaciones.edad }}</p>
+
+<hr>
+
+<h5>3. Deportes con mayor participación</h5>
+{{ grafica_deporte|safe }}
+<p><strong>Interpretación:</strong> {{ interpretaciones.deporte }}</p>
+
+<hr>
+
+<h5>4. Poblaciones diferenciales</h5>
+{{ grafica_poblacion|safe }}
+<p><strong>Interpretación:</strong> {{ interpretaciones.poblacion }}</p>
+
+<hr>
+
+<h5>Conocimientos evidentes</h5>
+<p class="text-muted">Calculados sobre el total de los datos (no cambian con los filtros).</p>
+
+{% for c in conocimientos %}
+<div class="mb-4">
+    <h6>{{ loop.index }}. {{ c.titulo }}</h6>
+    <ul>
+        <li><strong>Pregunta:</strong> {{ c.pregunta }}</li>
+        <li><strong>Variables:</strong> {{ c.variables }}</li>
+        <li><strong>Procedimiento:</strong> {{ c.procedimiento }}</li>
+        <li><strong>Evidencia:</strong> {{ c.evidencia }}</li>
+        <li><strong>Hallazgo:</strong> {{ c.hallazgo }}</li>
+        <li><strong>Interpretación:</strong> {{ c.interpretacion }}</li>
+        <li><strong>Utilidad:</strong> {{ c.utilidad }}</li>
+        <li><strong>Limitación:</strong> {{ c.limitacion }}</li>
+    </ul>
+</div>
+{% endfor %}
+
+<hr>
+
+<h5>Limitación del análisis</h5>
+<p>
+    Cada registro corresponde a una participación, no a una persona: un mismo deportista
+    puede aparecer varias veces (por deporte, etapa o año). Además, algunas variables tienen
+    valores «No registra» y no se dispone de la población escolar total, por lo que no se
+    puede medir qué proporción de los estudiantes participa.
+</p>
+
+<h5>Decisión sustentada en los datos</h5>
+<p>
+    Dado que la participación se concentra en edades de 8 a 15 años y en pocos deportes, y que
+    existe una diferencia entre hombres y mujeres, se podría priorizar el apoyo a los deportes
+    con menor participación y diseñar estrategias de convocatoria dirigidas a las mujeres,
+    verificando antes el detalle por deporte y territorio en las otras dimensiones.
+</p>
+
+{% endif %}
+
+{% endblock %}
