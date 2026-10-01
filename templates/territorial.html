@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Dimensión territorial{% endblock %}
+
+{% block content %}
+
+<h1>Dimensión territorial</h1>
+
+<p>
+    Análisis de la distribución de los registros de participación
+    en los Juegos Deportivos Institucionales Escolares.
+</p>
+
+<hr>
+
+<h5>Pregunta de análisis</h5>
+
+<p>
+    ¿Cómo se distribuyen los registros de participación entre
+    las diferentes subregiones y municipios?
+</p>
+
+
+<h5>Filtros</h5>
+
+<form method="GET" action="{{ url_for('territorial') }}">
+
+    <div class="row">
+
+        <div class="col-md-4">
+            <label>Año</label>
+
+            <select name="año" class="form-select">
+
+                <option value="Todos">Todos</option>
+
+                {% for año in años %}
+
+                <option
+                    value="{{ año }}"
+                    {% if año_seleccionado == año|string %}selected{% endif %}
+                >
+                    {{ año }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+        </div>
+
+
+        <div class="col-md-4">
+
+            <label>Subregión</label>
+
+            <select name="subregion" class="form-select">
+
+                <option value="Todas">Todas</option>
+
+                {% for subregion in subregiones_lista %}
+
+                <option
+                    value="{{ subregion }}"
+                    {% if subregion_seleccionada == subregion %}selected{% endif %}
+                >
+                    {{ subregion }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <div class="col-md-2 d-flex align-items-end">
+
+            <button type="submit" class="btn btn-dark">
+                Filtrar
+            </button>
+
+        </div>
+
+    </div>
+
+</form>
+
+
+<hr>
+
+
+<h5>Indicadores</h5>
+
+<div class="row">
+
+    <div class="col-md-4">
+
+        <p>
+            <strong>Total de registros:</strong><br>
+            {{ "{:,}".format(total_registros).replace(",", ".") }}
+        </p>
+
+    </div>
+
+
+    <div class="col-md-4">
+
+        <p>
+            <strong>Municipios:</strong><br>
+            {{ municipios }}
+        </p>
+
+    </div>
+
+
+    <div class="col-md-4">
+
+        <p>
+            <strong>Subregiones:</strong><br>
+            {{ subregiones }}
+        </p>
+
+    </div>
+
+</div>
+
+
+<hr>
+
+
+<h5>1. Registros por subregión</h5>
+
+{{ grafica_subregion|safe }}
+
+<p>
+    <strong>Interpretación:</strong>
+    La cantidad de registros varía entre las diferentes
+    subregiones. Algunas presentan una mayor concentración
+    de registros que otras.
+</p>
+
+
+<hr>
+
+
+<h5>2. Municipios con mayor cantidad de registros</h5>
+
+{{ grafica_municipios|safe }}
+
+<p>
+    <strong>Interpretación:</strong>
+    Se observan diferencias entre los municipios. Algunos
+    concentran una mayor cantidad de registros dentro del
+    conjunto de datos.
+</p>
+
+
+<hr>
+
+
+<h5>3. Registros por subregión y género</h5>
+
+{{ grafica_genero|safe }}
+
+<p>
+    <strong>Interpretación:</strong>
+    La distribución de los registros también presenta
+    diferencias según el género y la subregión.
+</p>
+
+
+<hr>
+
+
+<h5>Limitación</h5>
+
+<p>
+    La cantidad de registros no representa necesariamente
+    la cantidad de personas participantes, debido a que un
+    mismo deportista puede aparecer en diferentes registros.
+    Además, no se consideran variables externas como la
+    población de cada municipio o el número de estudiantes
+    potencialmente participantes.
+</p>
+{% endblock %}
