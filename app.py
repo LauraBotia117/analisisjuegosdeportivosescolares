@@ -174,6 +174,146 @@ def territorial():
         subregion_seleccionada=subregion_filtro
     )
 
+@app.route("/temporal")
+def temporal():
+    df = cargar_datos()
 
+    def a_html(fig):
+        # Plotly ya se carga en base.html, por eso include_plotlyjs=False
+        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    # -----------------------------
+    # DATOS BASE
+    # -----------------------------
+    por_anio = (
+        df.groupby("año")
+        .size()
+        .reset_index(name="registros")
+        .sort_values("año")
+    )
+    por_anio["variacion"] = por_anio["registros"].pct_change() * 100
+
+    anio_min = int(por_anio["año"].min())
+    anio_max = int(por_anio["año"].max())
+
+    fila_pico = por_anio.loc[por_anio["registros"].idxmax()]
+    fila_valle = por_anio.loc[por_anio["registros"].idxmin()]
+
+    primero = por_anio["registros"].iloc[0]
+    ultimo = por_anio["registros"].iloc[-1]
+    cambio_total = ((ultimo - primero) / primero * 100) if primero else 0
+
+    # -----------------------------
+    # GRÁFICA 1: evolución total
+    # -----------------------------
+    fig_total = px.line(
+        por_anio, x="año", y="registros", markers=True,
+        title="Registros de participación por año",
+        labels={"año": "Año", "registros": "Cantidad de registros"}
+    )
+    fig_total.update_xaxes(dtick=1)
+
+    # -----------------------------
+    # GRÁFICA 2: variación interanual
+    # -----------------------------
+    var = por_anio.dropna(subset=["variacion"]).copy()
+    var["color"] = var["variacion"].apply(lambda v: "Aumento" if v >= 0 else "Disminución")
+    fig_var = px.bar(
+        var, x="año", y="variacion", color="color",
+        color_discrete_map={"Aumento": "#2e7d32", "Disminución": "#c62828"},
+        title="Variación porcentual anual (%)",
+        labels={"año": "Año", "variacion": "Variación (%)", "color": ""}
+    )
+    fig_var.update_xaxes(dtick=1)
+
+    # -----------------------------
+    # GRÁFICA 3: por género
+    # -----------------------------
+    datos_genero = df.groupby(["año", "genero"]).size().reset_index(name="registros")
+    fig_genero = px.line(
+        datos_genero, x="año", y="registros", color="genero", markers=True,
+        title="Evolución de registros por género",
+        labels={"año": "Año", "registros": "Cantidad de registros", "genero": "Género"}
+    )
+    fig_genero.update_xaxes(dtick=1)
+
+    # -----------------------------
+    # GRÁFICA 4: por subregión
+    # -----------------------------
+    datos_sub = df.groupby(["año", "subregion"]).size().reset_index(name="registros")
+    fig_sub = px.line(
+        datos_sub, x="año", y="registros", color="subregion", markers=True,
+        title="Evolución de registros por subregión",
+        labels={"año": "Año", "registros": "Cantidad de registros", "subregion": "Subregión"}
+    )
+    fig_sub.update_xaxes(dtick=1)
+
+    # -----------------------------
+    # GRÁFICA 5: municipios activos por año
+    # -----------------------------
+    muni_anio = df.groupby("año")["municipio"].nunique().reset_index(name="municipios")
+    fig_muni = px.bar(
+        muni_anio, x="año", y="municipios",
+        title="Municipios con al menos un registro, por año",
+        labels={"año": "Año", "municipios": "Municipios"}
+    )
+    fig_muni.update_xaxes(dtick=1)
+
+    # -----------------------------
+    # CONCLUSIONES AUTOMÁTICAS
+    # -----------------------------
+    conclusiones = []
+
+    tendencia = "aumentó" if cambio_total > 0 else "disminuyó"
+    conclusiones.append(
+        f"Entre {anio_min} y {anio_max} la participación {tendencia} un "
+        f"{abs(cambio_total):.1f}% (de {primero:,} a {ultimo:,} registros)."
+    )
+    conclusiones.append(
+        f"El año de mayor participación fue {int(fila_pico['año'])} "
+        f"({int(fila_pico['registros']):,} registros) y el de menor fue "
+        f"{int(fila_valle['año'])} ({int(fila_valle['registros']):,} registros)."
+    )
+
+    if not var.empty:
+        mayor_alza = var.loc[var["variacion"].idxmax()]
+        mayor_caida = var.loc[var["variacion"].idxmin()]
+        conclusiones.append(
+            f"El mayor crecimiento interanual ocurrió en {int(mayor_alza['año'])} "
+            f"({mayor_alza['variacion']:+.1f}%) y la mayor caída en "
+            f"{int(mayor_caida['año'])} ({mayor_caida['variacion']:+.1f}%)."
+        )
+
+    # Género: proporción en el primer y último año
+    gen = df.groupby(["año", "genero"]).size().unstack(fill_value=0)
+    if not gen.empty:
+        prop = gen.div(gen.sum(axis=1), axis=0) * 100
+        dominante = prop.iloc[-1].idxmax()
+        conclusiones.append(
+            f"En {anio_max}, la categoría de género con mayor peso fue «{dominante}» "
+            f"({prop.iloc[-1][dominante]:.1f}%), frente a {prop.iloc[0][dominante]:.1f}% en {anio_min}."
+        )
+
+    conclusiones.append(
+        f"La cobertura territorial pasó de {int(muni_anio['municipios'].iloc[0])} municipios en "
+        f"{anio_min} a {int(muni_anio['municipios'].iloc[-1])} en {anio_max}."
+    )
+
+    return render_template(
+        "temporal.html",
+        anio_min=anio_min,
+        anio_max=anio_max,
+        anio_pico=int(fila_pico["año"]),
+        registros_pico=int(fila_pico["registros"]),
+        anio_valle=int(fila_valle["año"]),
+        registros_valle=int(fila_valle["registros"]),
+        cambio_total=float(cambio_total),
+        grafica_total=a_html(fig_total),
+        grafica_variacion=a_html(fig_var),
+        grafica_genero=a_html(fig_genero),
+        grafica_subregion=a_html(fig_sub),
+        grafica_municipios=a_html(fig_muni),
+        conclusiones=conclusiones,
+    )
 if __name__ == "__main__":
     app.run(debug=True)
