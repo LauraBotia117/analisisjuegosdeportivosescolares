@@ -27,6 +27,241 @@ def inicio():
     return render_template("index.html")
 
 
+@app.route("/poblacional")
+def poblacional():
+    df_total = cargar_datos()
+
+    # -----------------------------
+    # FILTROS (año y etapa)
+    # -----------------------------
+    año = request.args.get("año", "Todos")
+    etapa = request.args.get("etapa", "Todas")
+
+    df = df_total.copy()
+
+    if año.isdigit():
+        df = df[df["año"] == int(año)]
+    else:
+        año = "Todos"
+
+    if etapa in df_total["etapa"].unique():
+        df = df[df["etapa"] == etapa]
+    else:
+        etapa = "Todas"
+
+    total_registros = len(df)
+    hay_datos = total_registros > 0
+    base = total_registros if hay_datos else 1  # evita división por cero
+
+    def a_html(fig):
+        # Plotly ya se carga en base.html
+        fig.update_layout(margin=dict(t=50, b=40))
+        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    # -----------------------------
+    # INDICADORES
+    # -----------------------------
+    deportistas_unicos = df["id_deportista"].nunique()
+    deportes = df["deporte"].nunique()
+    pct_mujeres = (df["genero"] == "Mujer").sum() / base * 100
+
+    # -----------------------------
+    # TABLA: participación por categoría
+    # -----------------------------
+    tabla_categorias = []
+    for columna, nombre in [
+        ("genero", "Género"),
+        ("tipo_deporte", "Tipo de deporte"),
+        ("etapa", "Etapa"),
+    ]:
+        conteo = df[columna].value_counts()
+        for categoria, cantidad in conteo.items():
+            tabla_categorias.append({
+                "variable": nombre,
+                "categoria": categoria,
+                "registros": int(cantidad),
+                "porcentaje": cantidad / base * 100,
+            })
+
+    # -----------------------------
+    # GRÁFICA 1: composición por género
+    # -----------------------------
+    datos_genero = df.groupby("genero").size().reset_index(name="registros")
+    fig_genero = px.pie(
+        datos_genero, names="genero", values="registros", hole=0.45,
+        title="Distribución de registros por género"
+    )
+    fig_genero.update_traces(textinfo="percent+label")
+
+    # -----------------------------
+    # GRÁFICA 2: rango de edad
+    # -----------------------------
+    orden_edad = ["8 a 11", "12 a 15", "16 a 19", "20 a 23", "No registra"]
+    datos_edad = (
+        df.groupby("rango_edad").size().reindex(orden_edad, fill_value=0)
+        .reset_index(name="registros")
+    )
+    datos_edad["porcentaje"] = datos_edad["registros"] / base * 100
+    fig_edad = px.bar(
+        datos_edad, x="rango_edad", y="registros",
+        text=datos_edad["porcentaje"].map(lambda v: f"{v:.1f}%"),
+        title="Registros por rango de edad",
+        labels={"rango_edad": "Rango de edad", "registros": "Cantidad de registros"}
+    )
+
+    # -----------------------------
+    # GRÁFICA 3: top 10 deportes
+    # -----------------------------
+    datos_deporte = (
+        df.groupby("deporte").size().reset_index(name="registros")
+        .sort_values("registros", ascending=False).head(10)
+        .sort_values("registros")
+    )
+    datos_deporte["porcentaje"] = datos_deporte["registros"] / base * 100
+    fig_deporte = px.bar(
+        datos_deporte, x="registros", y="deporte", orientation="h",
+        text=datos_deporte["porcentaje"].map(lambda v: f"{v:.1f}%"),
+        title="10 deportes con más registros",
+        labels={"deporte": "Deporte", "registros": "Cantidad de registros"}
+    )
+
+    # -----------------------------
+    # GRÁFICA 4: poblaciones diferenciales (registros marcados con «Sí»)
+    # -----------------------------
+    columnas_poblacion = [c for c in df.columns if c.startswith("Población")]
+
+    def nombre_grupo(columna):
+        texto = columna.replace("Población ", "", 1)
+        if texto.startswith("en "):
+            texto = texto[3:]
+        return texto[0].upper() + texto[1:]
+
+    filas = []
+    for c in columnas_poblacion:
+        si = int((df[c] == "Sí").sum())
+        filas.append({
+            "grupo": nombre_grupo(c),
+            "registros": si,
+            "porcentaje": si / base * 100,
+        })
+    datos_poblacion = pd.DataFrame(filas).sort_values("porcentaje")
+    fig_poblacion = px.bar(
+        datos_poblacion, x="porcentaje", y="grupo", orientation="h",
+        text=datos_poblacion["porcentaje"].map(lambda v: f"{v:.1f}%"),
+        title="Registros que pertenecen a poblaciones diferenciales (%)",
+        labels={"grupo": "Población", "porcentaje": "% de los registros"}
+    )
+
+    # -----------------------------
+    # INTERPRETACIONES (calculadas sobre los datos filtrados)
+    # -----------------------------
+    interpretaciones = {}
+    if hay_datos:
+        g = df["genero"].value_counts(normalize=True) * 100
+        interpretaciones["genero"] = (
+            f"La categoría predominante es «{g.index[0]}» con {g.iloc[0]:.1f}% de los "
+            f"registros, frente a {g.iloc[1]:.1f}% de «{g.index[1]}»."
+            if len(g) > 1 else f"Solo aparece la categoría «{g.index[0]}»."
+        )
+        e = datos_edad.sort_values("porcentaje", ascending=False)
+        interpretaciones["edad"] = (
+            f"El rango «{e.iloc[0]['rango_edad']}» concentra {e.iloc[0]['porcentaje']:.1f}% "
+            f"de los registros y «{e.iloc[1]['rango_edad']}» aporta {e.iloc[1]['porcentaje']:.1f}%. "
+            f"Los rangos restantes tienen una participación muy baja."
+        )
+        d = datos_deporte.sort_values("registros", ascending=False)
+        top3 = d.head(3)["porcentaje"].sum()
+        interpretaciones["deporte"] = (
+            f"«{d.iloc[0]['deporte']}» es el deporte con más registros "
+            f"({d.iloc[0]['porcentaje']:.1f}%). Los tres primeros suman {top3:.1f}% del total."
+        )
+        p = datos_poblacion.sort_values("porcentaje", ascending=False)
+        interpretaciones["poblacion"] = (
+            f"El grupo con mayor presencia es «{p.iloc[0]['grupo']}» "
+            f"({p.iloc[0]['porcentaje']:.1f}% de los registros); el de menor presencia es "
+            f"«{p.iloc[-1]['grupo']}» ({p.iloc[-1]['porcentaje']:.1f}%). Un mismo registro puede "
+            f"pertenecer a más de un grupo."
+        )
+
+    # -----------------------------
+    # CONOCIMIENTOS EVIDENTES (siempre sobre el total de los datos)
+    # -----------------------------
+    T = len(df_total)
+    gt = df_total["genero"].value_counts(normalize=True) * 100
+    et = df_total["rango_edad"].value_counts(normalize=True) * 100
+    edad_escolar = et.get("8 a 11", 0) + et.get("12 a 15", 0)
+    dt = df_total["deporte"].value_counts()
+    top5 = dt.head(5)
+    top5_pct = top5.sum() / T * 100
+
+    conocimientos = [
+        {
+            "titulo": "Participación según género",
+            "pregunta": "¿Cómo se reparte la participación entre hombres y mujeres?",
+            "variables": "genero",
+            "procedimiento": "Se contaron los registros por categoría de género y se calculó el porcentaje sobre el total.",
+            "evidencia": "Gráfica 1 y tabla de participación por categoría.",
+            "hallazgo": (
+                f"«{gt.index[0]}» representa {gt.iloc[0]:.1f}% de los registros y "
+                f"«{gt.index[1]}» {gt.iloc[1]:.1f}%, una diferencia de "
+                f"{round(gt.iloc[0], 1) - round(gt.iloc[1], 1):.1f} puntos porcentuales."
+            ),
+            "interpretacion": "La participación no es paritaria: hay una categoría con mayor presencia en los Juegos.",
+            "utilidad": "Permite plantear estrategias para equilibrar la participación entre géneros.",
+            "limitacion": "No explica por qué existe la diferencia ni si se repite en todos los deportes o territorios.",
+        },
+        {
+            "titulo": "Concentración en edades escolares tempranas",
+            "pregunta": "¿En qué rangos de edad se concentra la población participante?",
+            "variables": "rango_edad",
+            "procedimiento": "Se contaron los registros por rango de edad y se sumaron los porcentajes de los dos primeros rangos.",
+            "evidencia": "Gráfica 2.",
+            "hallazgo": (
+                f"Los rangos «8 a 11» y «12 a 15» suman {edad_escolar:.1f}% de los registros; "
+                f"«No registra» corresponde a {et.get('No registra', 0):.1f}%."
+            ),
+            "interpretacion": "La población está formada casi en su totalidad por niños y adolescentes, coherente con un evento escolar.",
+            "utilidad": "Ayuda a diseñar la oferta deportiva y los recursos para esas edades.",
+            "limitacion": "El rango «No registra» impide clasificar a una parte de los registros.",
+        },
+        {
+            "titulo": "Pocos deportes concentran la participación",
+            "pregunta": "¿Qué deportes tienen mayor y menor participación?",
+            "variables": "deporte",
+            "procedimiento": "Se contaron los registros por deporte, se ordenaron de mayor a menor y se sumó el porcentaje de los cinco primeros.",
+            "evidencia": "Gráfica 3.",
+            "hallazgo": (
+                f"Los 5 deportes principales ({', '.join(top5.index)}) reúnen {top5_pct:.1f}% de los registros, "
+                f"de un total de {dt.size} deportes. El de menor participación es «{dt.index[-1]}» "
+                f"({dt.iloc[-1]:,} registros)."
+            ),
+            "interpretacion": "La participación está muy concentrada en pocas disciplinas, y varias tienen presencia mínima.",
+            "utilidad": "Orienta la asignación de escenarios y apoyo, y la promoción de los deportes menos practicados.",
+            "limitacion": "Un mayor número de registros no equivale a mayor calidad ni a más personas, porque un deportista puede tener varios registros.",
+        },
+    ]
+
+    return render_template(
+        "poblacional.html",
+        hay_datos=hay_datos,
+        total_registros=total_registros,
+        deportistas_unicos=deportistas_unicos,
+        deportes=deportes,
+        pct_mujeres=pct_mujeres,
+        tabla_categorias=tabla_categorias,
+        grafica_genero=a_html(fig_genero) if hay_datos else "",
+        grafica_edad=a_html(fig_edad) if hay_datos else "",
+        grafica_deporte=a_html(fig_deporte) if hay_datos else "",
+        grafica_poblacion=a_html(fig_poblacion) if hay_datos else "",
+        interpretaciones=interpretaciones,
+        conocimientos=conocimientos,
+        años=sorted(df_total["año"].unique()),
+        etapas=sorted(df_total["etapa"].unique()),
+        año_seleccionado=año,
+        etapa_seleccionada=etapa,
+    )
+
+
 @app.route("/territorial")
 def territorial():
     df = cargar_datos()
