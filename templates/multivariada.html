@@ -1,11 +1,35 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %}Análisis Relacional y Multivariado{% endblock %} {% block content %}
+Análisis relacional y multivariado
+¿Qué diferencias o relaciones evidentes pueden identificarse al analizar conjuntamente tres o más variables?
 
-{% block title %}Análisis Relacional y Multivariado{% endblock %}
+Subregión 
+Todas (comparar subregiones)
+Grupo de población vulnerable (gráficas 4 y 5) 
+{{ g }}
+Aplicar
+Gráfica 1. Género + Etapa + Territorio + Año
+{{ grafica1|safe }}
+Hallazgos
+Pendiente.
 
-{% block content %}
-<h1>Análisis relacional y multivariado</h1>
-<p class="text-muted">
-    ¿Qué diferencias o relaciones evidentes pueden identificarse al analizar conjuntamente tres o más variables?
-</p>
-<hr>
+Gráfica 2. Etapa + Rango de edad + Territorio + Año
+{{ grafica2|safe }}
+Hallazgos
+Pendiente.
+
+Gráfica 3. Rango de edad + Deporte + Territorio + Año
+{{ grafica3|safe }}
+Hallazgos
+Pendiente.
+
+Gráfica 4. Deporte + Población vulnerable + Territorio + Año
+{{ grafica4|safe }}
+Hallazgos
+Pendiente.
+
+Gráfica 5. Población vulnerable + Género + Territorio + Año
+{{ grafica5|safe }}
+Hallazgos
+Pendiente.
+
 {% endblock %}

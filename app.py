@@ -551,80 +551,149 @@ def temporal():
         conclusiones=conclusiones,
     )
 
-    # =====================================================
-# INTEGRANTE 4: DIMENSIÓN RELACIONAL Y MULTIVARIADA
-# =====================================================
-COLUMNAS_DIFERENCIALES = [
-    'Población en Situación de desplazamiento', 'Población campesina',
-    'Población con discapacidad', 'Población en proceso de reincorporación',
-    'Población migrante', 'Población víctima', 'Población LGTBI'
+
+
+# =====================================================================
+# DIMENSIÓN RELACIONAL Y MULTIVARIADA (Integrante 4)
+# Cada gráfica cruza: 2 variables de población + territorio + año
+# =====================================================================
+
+# Las subregiones cambiaron en 2024: se agrupan los años 2021-2023
+# con los mismos nombres de 2024-2025 para poder compararlos.
+HOMOLOGACION_SUBREGION = {
+    "Norte": "Norte y Bajo Cauca",
+    "Bajo Cauca": "Norte y Bajo Cauca",
+    "Nordeste": "Nordeste y Magdalena Medio",
+    "Magdalena Medio": "Nordeste y Magdalena Medio",
+}
+
+# Columnas de población vulnerable disponibles en el dataset
+GRUPOS_VULNERABLES = [
+    "Población víctima",
+    "Población en Situación de desplazamiento",
+    "Población campesina",
+    "Población con discapacidad",
+    "Población migrante",
+    "Población en proceso de reincorporación",
+    "Población LGTBI",
 ]
 
-def calcular_indicadores_multivariada(df_filtrado, total_general):
-    """Calcula los 3 indicadores principales para el tablero multivariado."""
-    total_filtrado = len(df_filtrado)
-    if total_filtrado == 0:
-        return {
-            'total_participantes': 0,
-            'porcentaje_general': 0.0,
-            'total_inclusion': 0,
-            'porcentaje_inclusion': 0.0,
-            'porcentaje_mujeres': 0.0,
-            'porcentaje_finalistas': 0.0
-        }
+# Rangos de edad con datos suficientes (los demás tienen 4 registros en total)
+RANGOS_EDAD = ["8 a 11", "12 a 15"]
 
-    pct_general = round((total_filtrado / total_general) * 100, 1)
+# Cantidad máxima de municipios a mostrar cuando se elige una subregión
+MAX_MUNICIPIOS = 8
 
-    # Inclusión diferencial (al menos un 'Sí')
-    cols_existentes = [c for c in COLUMNAS_DIFERENCIALES if c in df_filtrado.columns]
-    es_vulnerable = (df_filtrado[cols_existentes] == 'Sí').any(axis=1) if cols_existentes else pd.Series(False, index=df_filtrado.index)
-    total_inclusion = int(es_vulnerable.sum())
-    pct_inclusion = round((total_inclusion / total_filtrado) * 100, 1)
 
-    # Género y acceso a finales
-    mujeres = (df_filtrado['genero'] == 'Mujer').sum()
-    pct_mujeres = round((mujeres / total_filtrado) * 100, 1)
-
-    finalistas = (df_filtrado['etapa'] == 'Final').sum()
-    pct_finalistas = round((finalistas / total_filtrado) * 100, 1)
-
-    return {
-        'total_participantes': total_filtrado,
-        'porcentaje_general': pct_general,
-        'total_inclusion': total_inclusion,
-        'porcentaje_inclusion': pct_inclusion,
-        'porcentaje_mujeres': pct_mujeres,
-        'porcentaje_finalistas': pct_finalistas
-    }
 @app.route("/multivariada")
 def multivariada():
-    df_completo = cargar_datos()
- 
-    # 1. Leer filtros de la URL
+    df = cargar_datos()
+    df["subregion_h"] = df["subregion"].replace(HOMOLOGACION_SUBREGION)
+    subregiones = sorted(df["subregion_h"].unique())
+
+    # -----------------------------
+    # FILTROS
+    # -----------------------------
     subregion_sel = request.args.get("subregion", "Todas")
-    año_sel = request.args.get("año", "Todos")
-    etapa_sel = request.args.get("etapa", "Todas")
-    genero_sel = request.args.get("genero", "Todos")
- 
-    # 2. Filtrar datos
-    df = aplicar_filtros(df_completo, subregion_sel, año_sel, etapa_sel, genero_sel)
- 
-    # 3. Calcular indicadores
-    indicadores = calcular_indicadores_multivariada(df, len(df_completo))
- 
-    # 4. Enviar todo a la plantilla
+    grupo_sel = request.args.get("grupo", GRUPOS_VULNERABLES[0])
+
+    if grupo_sel not in GRUPOS_VULNERABLES:
+        grupo_sel = GRUPOS_VULNERABLES[0]
+
+    # Filtro 1: con "Todas" se comparan subregiones;
+    # con una subregión elegida se comparan sus municipios.
+    if subregion_sel in subregiones:
+        df = df[df["subregion_h"] == subregion_sel]
+        principales = df["municipio"].value_counts().head(MAX_MUNICIPIOS).index
+        df = df[df["municipio"].isin(principales)]
+        territorio = "municipio"
+        nombre_territorio = "Municipio"
+    else:
+        subregion_sel = "Todas"
+        territorio = "subregion_h"
+        nombre_territorio = "Subregión"
+
+    # Columnas auxiliares: valen 100 si se cumple la condición y 0 si no.
+    # Así, el promedio de la columna en cada grupo es directamente un porcentaje.
+    df["es_mujer"] = (df["genero"] == "Mujer") * 100
+    df["es_final"] = (df["etapa"] == "Final") * 100
+    df["es_12_15"] = (df["rango_edad"] == "12 a 15") * 100
+    df["es_vulnerable"] = (df[grupo_sel] == "Sí") * 100
+
+    etiquetas = {
+        "año": "Año",
+        territorio: nombre_territorio,
+        "etapa": "Etapa",
+        "rango_edad": "Rango de edad",
+        "deporte": "Deporte",
+        "genero": "Género",
+        "es_mujer": "% de mujeres",
+        "es_final": "% en etapa Final",
+        "es_12_15": "% de 12 a 15 años",
+        "es_vulnerable": f"% {grupo_sel.lower()}",
+    }
+
+    def porcentaje_por_año(datos, panel, medida):
+        """Calcula el % de 'medida' por año, panel y territorio."""
+        return (
+            datos.groupby(["año", panel, territorio])[medida]
+            .mean().round(1).reset_index()
+        )
+
+    def linea(datos, medida, panel, titulo, columnas_por_fila=None):
+        """Gráfica de líneas: año en X, una línea por territorio, un panel por categoría."""
+        fig = px.line(
+            datos, x="año", y=medida, color=territorio,
+            facet_col=panel, facet_col_wrap=columnas_por_fila,
+            markers=True, labels=etiquetas, title=titulo,
+        )
+        fig.update_xaxes(dtick=1)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        fig.update_layout(margin=dict(t=70, b=40), height=450 if not columnas_por_fila else 650)
+        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    df_edad = df[df["rango_edad"].isin(RANGOS_EDAD)]
+    top_deportes = df["deporte"].value_counts().head(5).index
+    df_dep = df[df["deporte"].isin(top_deportes)]
+
+    # Gráfica 1: Género + Etapa + Territorio + Año
+    g1 = porcentaje_por_año(df, "etapa", "es_mujer")
+    grafica1 = linea(g1, "es_mujer", "etapa",
+                     f"% de mujeres por {nombre_territorio.lower()} y año, según etapa")
+
+    # Gráfica 2: Etapa + Rango de edad + Territorio + Año
+    g2 = porcentaje_por_año(df_edad, "rango_edad", "es_final")
+    grafica2 = linea(g2, "es_final", "rango_edad",
+                     f"% de registros en etapa Final por {nombre_territorio.lower()} y año, según rango de edad")
+
+    # Gráfica 3: Rango de edad + Deporte + Territorio + Año
+    g3 = porcentaje_por_año(df_dep[df_dep["rango_edad"].isin(RANGOS_EDAD)], "deporte", "es_12_15")
+    grafica3 = linea(g3, "es_12_15", "deporte",
+                     f"% de 12 a 15 años por {nombre_territorio.lower()} y año, en los 5 deportes principales",
+                     columnas_por_fila=3)
+
+    # Gráfica 4: Deporte + Población vulnerable + Territorio + Año
+    g4 = porcentaje_por_año(df_dep, "deporte", "es_vulnerable")
+    grafica4 = linea(g4, "es_vulnerable", "deporte",
+                     f"% {grupo_sel.lower()} por {nombre_territorio.lower()} y año, en los 5 deportes principales",
+                     columnas_por_fila=3)
+
+    # Gráfica 5: Población vulnerable + Género + Territorio + Año
+    g5 = porcentaje_por_año(df, "genero", "es_vulnerable")
+    grafica5 = linea(g5, "es_vulnerable", "genero",
+                     f"% {grupo_sel.lower()} por {nombre_territorio.lower()} y año, según género")
+
     return render_template(
         "multivariada.html",
-        hay_datos=len(df) > 0,
-        indicadores=indicadores,
-        subregiones_lista=opciones_unicas(df_completo, "subregion"),
-        años_lista=opciones_unicas(df_completo, "año", como_entero=True),
-        etapas_lista=opciones_unicas(df_completo, "etapa"),
-        generos_lista=opciones_unicas(df_completo, "genero"),
-        subregion_seleccionada=subregion_sel,
-        año_seleccionado=año_sel,
-        etapa_seleccionada=etapa_sel,
-        genero_seleccionado=genero_sel,
+        subregiones=subregiones,
+        subregion_sel=subregion_sel,
+        grupos=GRUPOS_VULNERABLES,
+        grupo_sel=grupo_sel,
+        grafica1=grafica1,
+        grafica2=grafica2,
+        grafica3=grafica3,
+        grafica4=grafica4,
+        grafica5=grafica5,
     )
 if __name__ == "__main__":
     app.run(debug=True)
