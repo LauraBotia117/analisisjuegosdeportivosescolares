@@ -550,5 +550,81 @@ def temporal():
         grafica_municipios=a_html(fig_muni),
         conclusiones=conclusiones,
     )
+
+    # =====================================================
+# INTEGRANTE 4: DIMENSIÓN RELACIONAL Y MULTIVARIADA
+# =====================================================
+COLUMNAS_DIFERENCIALES = [
+    'Población en Situación de desplazamiento', 'Población campesina',
+    'Población con discapacidad', 'Población en proceso de reincorporación',
+    'Población migrante', 'Población víctima', 'Población LGTBI'
+]
+
+def calcular_indicadores_multivariada(df_filtrado, total_general):
+    """Calcula los 3 indicadores principales para el tablero multivariado."""
+    total_filtrado = len(df_filtrado)
+    if total_filtrado == 0:
+        return {
+            'total_participantes': 0,
+            'porcentaje_general': 0.0,
+            'total_inclusion': 0,
+            'porcentaje_inclusion': 0.0,
+            'porcentaje_mujeres': 0.0,
+            'porcentaje_finalistas': 0.0
+        }
+
+    pct_general = round((total_filtrado / total_general) * 100, 1)
+
+    # Inclusión diferencial (al menos un 'Sí')
+    cols_existentes = [c for c in COLUMNAS_DIFERENCIALES if c in df_filtrado.columns]
+    es_vulnerable = (df_filtrado[cols_existentes] == 'Sí').any(axis=1) if cols_existentes else pd.Series(False, index=df_filtrado.index)
+    total_inclusion = int(es_vulnerable.sum())
+    pct_inclusion = round((total_inclusion / total_filtrado) * 100, 1)
+
+    # Género y acceso a finales
+    mujeres = (df_filtrado['genero'] == 'Mujer').sum()
+    pct_mujeres = round((mujeres / total_filtrado) * 100, 1)
+
+    finalistas = (df_filtrado['etapa'] == 'Final').sum()
+    pct_finalistas = round((finalistas / total_filtrado) * 100, 1)
+
+    return {
+        'total_participantes': total_filtrado,
+        'porcentaje_general': pct_general,
+        'total_inclusion': total_inclusion,
+        'porcentaje_inclusion': pct_inclusion,
+        'porcentaje_mujeres': pct_mujeres,
+        'porcentaje_finalistas': pct_finalistas
+    }
+@app.route("/multivariada")
+def multivariada():
+    df_completo = cargar_datos()
+ 
+    # 1. Leer filtros de la URL
+    subregion_sel = request.args.get("subregion", "Todas")
+    año_sel = request.args.get("año", "Todos")
+    etapa_sel = request.args.get("etapa", "Todas")
+    genero_sel = request.args.get("genero", "Todos")
+ 
+    # 2. Filtrar datos
+    df = aplicar_filtros(df_completo, subregion_sel, año_sel, etapa_sel, genero_sel)
+ 
+    # 3. Calcular indicadores
+    indicadores = calcular_indicadores_multivariada(df, len(df_completo))
+ 
+    # 4. Enviar todo a la plantilla
+    return render_template(
+        "multivariada.html",
+        hay_datos=len(df) > 0,
+        indicadores=indicadores,
+        subregiones_lista=opciones_unicas(df_completo, "subregion"),
+        años_lista=opciones_unicas(df_completo, "año", como_entero=True),
+        etapas_lista=opciones_unicas(df_completo, "etapa"),
+        generos_lista=opciones_unicas(df_completo, "genero"),
+        subregion_seleccionada=subregion_sel,
+        año_seleccionado=año_sel,
+        etapa_seleccionada=etapa_sel,
+        genero_seleccionado=genero_sel,
+    )
 if __name__ == "__main__":
     app.run(debug=True)
