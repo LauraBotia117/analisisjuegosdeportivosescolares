@@ -552,7 +552,6 @@ def temporal():
     )
 
 
-
 # =====================================================================
 # DIMENSIÓN RELACIONAL Y MULTIVARIADA (Integrante 4)
 # Cada gráfica cruza: 2 variables de población + territorio + año
@@ -584,6 +583,9 @@ RANGOS_EDAD = ["8 a 11", "12 a 15"]
 # Cantidad máxima de municipios a mostrar cuando se elige una subregión
 MAX_MUNICIPIOS = 8
 
+# Mínimo de registros para que un porcentaje se tenga en cuenta en los indicadores
+MIN_REGISTROS = 30
+
 
 @app.route("/multivariada")
 def multivariada():
@@ -601,11 +603,11 @@ def multivariada():
         grupo_sel = GRUPOS_VULNERABLES[0]
 
     # Filtro 1: con "Todas" se comparan subregiones;
-    # con una subregión elegida se comparan sus municipios.
+    # con una subregión elegida se comparan sus municipios principales.
     if subregion_sel in subregiones:
         df = df[df["subregion_h"] == subregion_sel]
         principales = df["municipio"].value_counts().head(MAX_MUNICIPIOS).index
-        df = df[df["municipio"].isin(principales)]
+        df = df[df["municipio"].isin(principales)].copy()
         territorio = "municipio"
         nombre_territorio = "Municipio"
     else:
@@ -620,80 +622,89 @@ def multivariada():
     df["es_12_15"] = (df["rango_edad"] == "12 a 15") * 100
     df["es_vulnerable"] = (df[grupo_sel] == "Sí") * 100
 
+    grupo_txt = grupo_sel.lower()
     etiquetas = {
         "año": "Año",
         territorio: nombre_territorio,
-        "etapa": "Etapa",
-        "rango_edad": "Rango de edad",
-        "deporte": "Deporte",
-        "genero": "Género",
+        "etapa": "Etapa", "rango_edad": "Rango de edad",
+        "deporte": "Deporte", "genero": "Género",
         "es_mujer": "% de mujeres",
         "es_final": "% en etapa Final",
         "es_12_15": "% de 12 a 15 años",
-        "es_vulnerable": f"% {grupo_sel.lower()}",
+        "es_vulnerable": f"% {grupo_txt}",
+        "registros": "Registros",
     }
 
-    def porcentaje_por_año(datos, panel, medida):
-        """Calcula el % de 'medida' por año, panel y territorio."""
-        return (
-            datos.groupby(["año", panel, territorio])[medida]
-            .mean().round(1).reset_index()
-        )
-
-    def linea(datos, medida, panel, titulo, columnas_por_fila=None):
-        """Gráfica de líneas: año en X, una línea por territorio, un panel por categoría."""
-        fig = px.line(
-            datos, x="año", y=medida, color=territorio,
-            facet_col=panel, facet_col_wrap=columnas_por_fila,
-            markers=True, labels=etiquetas, title=titulo,
-        )
-        fig.update_xaxes(dtick=1)
-        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        fig.update_layout(margin=dict(t=70, b=40), height=450 if not columnas_por_fila else 650)
+    def a_html(fig, alto=550):
+        fig.update_layout(margin=dict(t=40, b=40), height=alto)
         return pio.to_html(fig, full_html=False, include_plotlyjs=False)
 
-    df_edad = df[df["rango_edad"].isin(RANGOS_EDAD)]
-    top_deportes = df["deporte"].value_counts().head(5).index
-    df_dep = df[df["deporte"].isin(top_deportes)]
+    años = sorted(df["año"].unique())
 
-    # Gráfica 1: Género + Etapa + Territorio + Año
-    g1 = porcentaje_por_año(df, "etapa", "es_mujer")
-    grafica1 = linea(g1, "es_mujer", "etapa",
-                     f"% de mujeres por {nombre_territorio.lower()} y año, según etapa")
+    # -----------------------------
+    # GRÁFICA 1: Género + Etapa + Territorio + Año  →  burbujas animadas
+    # Cada burbuja es un territorio en un año:
+    #   eje X = % de mujeres, eje Y = % en etapa Final, tamaño = registros
+    # -----------------------------
+    g1 = df.groupby(["año", territorio]).agg(
+        es_mujer=("es_mujer", "mean"),
+        es_final=("es_final", "mean"),
+        registros=("es_mujer", "size"),
+    ).round(1)
 
-    # Gráfica 2: Etapa + Rango de edad + Territorio + Año
-    g2 = porcentaje_por_año(df_edad, "rango_edad", "es_final")
-    grafica2 = linea(g2, "es_final", "rango_edad",
-                     f"% de registros en etapa Final por {nombre_territorio.lower()} y año, según rango de edad")
+    # Completa las combinaciones año-territorio que no existan, para que
+    # todos los territorios aparezcan en la animación desde el primer año.
+    todas = pd.MultiIndex.from_product([años, sorted(df[territorio].unique())],
+                                       names=["año", territorio])
+    g1 = g1.reindex(todas).reset_index()
+    g1["registros"] = g1["registros"].fillna(0)
 
-    # Gráfica 3: Rango de edad + Deporte + Territorio + Año
-    g3 = porcentaje_por_año(df_dep[df_dep["rango_edad"].isin(RANGOS_EDAD)], "deporte", "es_12_15")
-    grafica3 = linea(g3, "es_12_15", "deporte",
-                     f"% de 12 a 15 años por {nombre_territorio.lower()} y año, en los 5 deportes principales",
-                     columnas_por_fila=3)
+    fig1 = px.scatter(
+        g1, x="es_mujer", y="es_final", size="registros", color=territorio,
+        animation_frame="año", animation_group=territorio,
+        size_max=55, range_x=[20, 80], range_y=[-5, 60],
+        hover_name=territorio, labels=etiquetas,
+    )
+    fig1.add_vline(x=50, line_dash="dot", line_color="gray")  # línea de paridad de género
+    grafica1 = a_html(fig1)
 
-    # Gráfica 4: Deporte + Población vulnerable + Territorio + Año
-    g4 = porcentaje_por_año(df_dep, "deporte", "es_vulnerable")
-    grafica4 = linea(g4, "es_vulnerable", "deporte",
-                     f"% {grupo_sel.lower()} por {nombre_territorio.lower()} y año, en los 5 deportes principales",
-                     columnas_por_fila=3)
+    # -----------------------------
+    # INDICADORES
+    # -----------------------------
+    total_registros = len(df)
+    num_territorios = df[territorio].nunique()
 
-    # Gráfica 5: Población vulnerable + Género + Territorio + Año
-    g5 = porcentaje_por_año(df, "genero", "es_vulnerable")
-    grafica5 = linea(g5, "es_vulnerable", "genero",
-                     f"% {grupo_sel.lower()} por {nombre_territorio.lower()} y año, según género")
+    # 1. Combinación más frecuente (territorio + deporte + género + año)
+    combo = df.groupby([territorio, "deporte", "genero", "año"]).size().sort_values(ascending=False)
+    combo_nombre = " · ".join(str(v) for v in combo.index[0])
+    combo_registros = int(combo.iloc[0])
+
+    # 2. Mayor % de mujeres en la etapa Final (solo grupos con suficientes registros)
+    finales = df[df["etapa"] == "Final"].groupby([territorio, "año"])["es_mujer"].agg(["mean", "size"])
+    finales = finales[finales["size"] >= MIN_REGISTROS]
+    if finales.empty:
+        mujeres_final_nombre, mujeres_final_pct = "Sin datos", 0
+    else:
+        top = finales["mean"].idxmax()
+        mujeres_final_nombre = f"{top[0]} · {top[1]}"
+        mujeres_final_pct = round(finales["mean"].max(), 1)
+
+    # 3. Año con mayor % del grupo vulnerable seleccionado
+    vulnerable_por_año = df.groupby("año")["es_vulnerable"].mean()
+    vulnerable_año = int(vulnerable_por_año.idxmax())
+    vulnerable_pct = round(vulnerable_por_año.max(), 1)
 
     return render_template(
         "multivariada.html",
-        subregiones=subregiones,
-        subregion_sel=subregion_sel,
-        grupos=GRUPOS_VULNERABLES,
-        grupo_sel=grupo_sel,
+        subregiones=subregiones, subregion_sel=subregion_sel,
+        grupos=GRUPOS_VULNERABLES, grupo_sel=grupo_sel,
+        nombre_territorio=nombre_territorio,
+        total_registros=total_registros, num_territorios=num_territorios,
+        combo_nombre=combo_nombre, combo_registros=combo_registros,
+        mujeres_final_nombre=mujeres_final_nombre, mujeres_final_pct=mujeres_final_pct,
+        vulnerable_año=vulnerable_año, vulnerable_pct=vulnerable_pct,
         grafica1=grafica1,
-        grafica2=grafica2,
-        grafica3=grafica3,
-        grafica4=grafica4,
-        grafica5=grafica5,
     )
+
 if __name__ == "__main__":
     app.run(debug=True)
