@@ -687,6 +687,112 @@ def pregunta_genero_edad(df, subregion_sel, deporte_sel):
     )
 
 
+# ---------------------------------------------------------------------
+# PREGUNTA 2: población vulnerable y no vulnerable por etapa, territorio y año
+# ---------------------------------------------------------------------
+COLOR_VULNERABLE = {"Vulnerable": "#e76f51", "No vulnerable": "#8ecae6"}
+ORDEN_VULNERABLE = ["Vulnerable", "No vulnerable"]
+ORDEN_ETAPAS = ["Subregional", "Final"]
+MIN_REGISTROS_MUNICIPIO = 100  # mínimo para mostrar el porcentaje de un municipio
+MAX_MUNICIPIOS_P2 = 15
+
+
+def pregunta_vulnerable(df, subregion_sel, grupo_sel):
+    """Calcula indicadores y gráficas de la pregunta 2."""
+    df = df.copy()
+
+    # Un registro es "Vulnerable" si tiene "Sí" en el grupo elegido
+    # (o en al menos uno de los grupos, si se elige "Cualquier grupo").
+    # "No" y "No registra" se cuentan como "No vulnerable".
+    columnas = GRUPOS_VULNERABLES if grupo_sel == "Cualquier grupo" else [grupo_sel]
+    es_vulnerable = (df[columnas] == "Sí").any(axis=1)
+    df["condicion"] = es_vulnerable.map({True: "Vulnerable", False: "No vulnerable"})
+    df["es_vulnerable"] = es_vulnerable * 100
+
+    df_sub = df if subregion_sel == "Todas" else df[df["subregion_h"] == subregion_sel]
+
+    def a_html(fig, alto=450):
+        fig.update_layout(margin=dict(t=40, b=40), height=alto,
+                          legend=dict(orientation="h", y=1.1))
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    def porcentajes(datos, grupos):
+        """% de vulnerables y no vulnerables dentro de cada grupo."""
+        return (datos.groupby(grupos)["condicion"]
+                .value_counts(normalize=True).mul(100).round(1)
+                .reset_index(name="porcentaje"))
+
+    etiquetas = {"porcentaje": "% de registros", "condicion": "Condición",
+                 "subregion_h": "Subregión", "municipio": "Municipio",
+                 "etapa": "Etapa", "año": "Año", "registros": "Registros"}
+    orden = {"condicion": ORDEN_VULNERABLE, "etapa": ORDEN_ETAPAS}
+
+    # --- Indicadores (con el filtro de subregión) ---
+    total_vulnerables = int(es_vulnerable[df_sub.index].sum())
+    pct_vulnerable = round(float(df_sub["es_vulnerable"].mean()), 1)
+    por_etapa = df_sub.groupby("etapa")["es_vulnerable"].mean()
+    pct_subregional = round(float(por_etapa.get("Subregional", 0)), 1)
+    pct_final = round(float(por_etapa.get("Final", 0)), 1)
+
+    por_municipio = df_sub.groupby("municipio")["es_vulnerable"].agg(["mean", "size"])
+    por_municipio = por_municipio[por_municipio["size"] >= MIN_REGISTROS_MUNICIPIO]
+    if por_municipio.empty:
+        municipio_max, pct_municipio_max = "Sin datos", 0
+    else:
+        municipio_max = por_municipio["mean"].idxmax()
+        pct_municipio_max = round(float(por_municipio["mean"].max()), 1)
+
+    # --- Gráfica 2.1: vulnerables y no vulnerables por subregión y etapa ---
+    g1 = porcentajes(df, ["subregion_h", "etapa"])
+    fig1 = px.bar(
+        g1, x="porcentaje", y="subregion_h", color="condicion", facet_col="etapa",
+        orientation="h", barmode="stack", text_auto=".0f",
+        category_orders=orden, color_discrete_map=COLOR_VULNERABLE, labels=etiquetas,
+    )
+    grafica1 = a_html(fig1, alto=420)
+
+    # --- Gráfica 2.2: municipios con mayor porcentaje de población vulnerable ---
+    orden_mun = por_municipio["mean"].sort_values(ascending=False).head(MAX_MUNICIPIOS_P2).index
+    g2 = porcentajes(df_sub[df_sub["municipio"].isin(orden_mun)], ["municipio"])
+    fig2 = px.bar(
+        g2, x="porcentaje", y="municipio", color="condicion",
+        orientation="h", barmode="stack", text_auto=".0f",
+        category_orders={**orden, "municipio": list(orden_mun)},
+        color_discrete_map=COLOR_VULNERABLE, labels=etiquetas,
+    )
+    grafica2 = a_html(fig2, alto=max(350, 32 * len(orden_mun)))
+
+    # --- Gráfica 2.3: evolución anual por etapa (cantidad de registros) ---
+    g3 = df_sub.groupby(["año", "etapa", "condicion"]).size().reset_index(name="registros")
+    fig3 = px.bar(
+        g3, x="año", y="registros", color="condicion", facet_col="etapa",
+        barmode="stack", text_auto=True,
+        category_orders=orden, color_discrete_map=COLOR_VULNERABLE, labels=etiquetas,
+    )
+    fig3.update_xaxes(dtick=1)
+    fig3.update_yaxes(matches=None, showticklabels=True)  # cada etapa con su propia escala
+    grafica3 = a_html(fig3, alto=450)
+
+    # % de vulnerables por año y etapa (tabla debajo de la gráfica 2.3)
+    tabla = (df_sub.groupby(["año", "etapa"])["es_vulnerable"].mean().round(1)
+             .unstack().reindex(columns=ORDEN_ETAPAS))
+    tabla_anual = [
+        dict(año=int(año),
+             subregional=fila["Subregional"] if pd.notna(fila["Subregional"]) else None,
+             final=fila["Final"] if pd.notna(fila["Final"]) else None)
+        for año, fila in tabla.iterrows()
+    ]
+
+    return dict(
+        p2_total_vulnerables=total_vulnerables, p2_pct_vulnerable=pct_vulnerable,
+        p2_pct_subregional=pct_subregional, p2_pct_final=pct_final,
+        p2_municipio_max=municipio_max, p2_pct_municipio_max=pct_municipio_max,
+        p2_tabla_anual=tabla_anual,
+        p2_grafica1=grafica1, p2_grafica2=grafica2, p2_grafica3=grafica3,
+    )
+
+
 @app.route("/multivariada")
 def multivariada():
     df = cargar_datos()
@@ -711,6 +817,16 @@ def multivariada():
     if p1_deporte not in deportes:
         p1_deporte = "Todos"
     pregunta1 = pregunta_genero_edad(df, p1_subregion, p1_deporte)
+
+    # Filtros de la pregunta 2
+    grupos_p2 = ["Cualquier grupo"] + GRUPOS_VULNERABLES
+    p2_subregion = request.args.get("p2_subregion", "Todas")
+    p2_grupo = request.args.get("p2_grupo", "Cualquier grupo")
+    if p2_subregion not in subregiones:
+        p2_subregion = "Todas"
+    if p2_grupo not in grupos_p2:
+        p2_grupo = "Cualquier grupo"
+    pregunta2 = pregunta_vulnerable(df, p2_subregion, p2_grupo)
 
     # Filtro 1: con "Todas" se comparan subregiones;
     # con una subregión elegida se comparan sus municipios principales.
@@ -862,6 +978,8 @@ def multivariada():
         subregiones=subregiones, subregion_sel=subregion_sel,
         deportes=deportes, p1_subregion=p1_subregion, p1_deporte=p1_deporte,
         **pregunta1,
+        grupos_p2=grupos_p2, p2_subregion=p2_subregion, p2_grupo=p2_grupo,
+        **pregunta2,
         grupos=GRUPOS_VULNERABLES, grupo_sel=grupo_sel,
         nombre_territorio=nombre_territorio,
         total_registros=total_registros, num_territorios=num_territorios,

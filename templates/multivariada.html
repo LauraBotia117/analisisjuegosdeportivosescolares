@@ -52,6 +52,8 @@
 <form method="get" class="row g-3 align-items-end mb-4">
     <input type="hidden" name="subregion" value="{{ subregion_sel }}">
     <input type="hidden" name="grupo" value="{{ grupo_sel }}">
+    <input type="hidden" name="p2_subregion" value="{{ p2_subregion }}">
+    <input type="hidden" name="p2_grupo" value="{{ p2_grupo }}">
     <div class="col-md-5">
         <label for="p1_subregion" class="form-label">Subregión (gráficas 1.1 y 1.2)</label>
         <select id="p1_subregion" name="p1_subregion" class="form-select">
@@ -204,6 +206,219 @@
     </div>
 </div>
 
+<!-- =============================================================== -->
+<!-- PREGUNTA 2                                                      -->
+<!-- =============================================================== -->
+<hr class="my-5">
+<h4>Pregunta 2. Población vulnerable por etapa, territorio y año</h4>
+
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Pregunta</h6>
+                <p>
+                    ¿Cuál es la diferencia entre la población vulnerable y la no vulnerable por etapa,
+                    por municipio y subregión, y cuál es su evolución anual?
+                </p>
+                <h6 class="text-muted">Variables cruzadas</h6>
+                <p class="mb-0">Población vulnerable × Etapa × Subregión × Municipio × Año</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Variables usadas y su relevancia</h6>
+                <table class="table table-sm small mb-0">
+                    <tbody>
+                        <tr><th>Población vulnerable</th><td>Siete columnas (víctima, desplazamiento, campesina, discapacidad, migrante, reincorporación, LGTBI). Un registro es vulnerable si tiene "Sí" en al menos una; "No" y "No registra" se cuentan como no vulnerable.</td></tr>
+                        <tr><th>Etapa</th><td>Compara la presencia de población vulnerable en la etapa Subregional y en la Final.</td></tr>
+                        <tr><th>Subregión</th><td>Muestra qué territorios concentran más población vulnerable.</td></tr>
+                        <tr><th>Municipio</th><td>Identifica los casos locales más altos, que el promedio subregional oculta.</td></tr>
+                        <tr><th>Año</th><td>Muestra si la participación vulnerable aumenta o disminuye en el tiempo.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de la pregunta 2 -->
+<form method="get" class="row g-3 align-items-end mb-4">
+    <input type="hidden" name="subregion" value="{{ subregion_sel }}">
+    <input type="hidden" name="grupo" value="{{ grupo_sel }}">
+    <input type="hidden" name="p1_subregion" value="{{ p1_subregion }}">
+    <input type="hidden" name="p1_deporte" value="{{ p1_deporte }}">
+    <div class="col-md-5">
+        <label for="p2_subregion" class="form-label">Subregión (indicadores, gráficas 2.2 y 2.3)</label>
+        <select id="p2_subregion" name="p2_subregion" class="form-select">
+            <option value="Todas" {% if p2_subregion == "Todas" %}selected{% endif %}>Todas</option>
+            {% for s in subregiones %}
+            <option value="{{ s }}" {% if s == p2_subregion %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-5">
+        <label for="p2_grupo" class="form-label">Grupo vulnerable (todas las gráficas)</label>
+        <select id="p2_grupo" name="p2_grupo" class="form-select">
+            {% for g in grupos_p2 %}
+            <option value="{{ g }}" {% if g == p2_grupo %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Aplicar</button>
+    </div>
+</form>
+
+<!-- Indicadores de la pregunta 2 -->
+<div class="row text-center mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Población vulnerable</h6>
+            <h3>{{ p2_pct_vulnerable }}%</h3>
+            <small class="text-muted">{{ "{:,}".format(p2_total_vulnerables) }} registros · {{ (100 - p2_pct_vulnerable)|round(1) }}% no vulnerable</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Vulnerables en etapa Subregional</h6>
+            <h3>{{ p2_pct_subregional }}%</h3>
+            <small class="text-muted">de los registros de esa etapa</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Vulnerables en etapa Final</h6>
+            <h3>{{ p2_pct_final }}%</h3>
+            <small class="text-muted">{{ (p2_pct_subregional - p2_pct_final)|round(1) }} pp menos que en la Subregional</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Municipio con mayor %</h6>
+            <h3 class="fs-5">{{ p2_municipio_max }}</h3>
+            <small class="text-muted">{{ p2_pct_municipio_max }}% de población vulnerable</small>
+        </div></div>
+    </div>
+</div>
+
+<!-- Gráfica 2.1 -->
+<h5>2.1 Población vulnerable y no vulnerable por subregión y etapa</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p2_grafica1|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> cada barra es una subregión y suma 100%: naranja para población
+            vulnerable y azul claro para no vulnerable. El panel izquierdo es la etapa Subregional y el
+            derecho la Final; si la parte naranja se achica a la derecha, la población vulnerable llega
+            menos a la Final. Incluye todos los años y todas las subregiones.
+        </p>
+    </div>
+</div>
+
+<!-- Gráfica 2.2 -->
+<h5>2.2 Municipios con mayor porcentaje de población vulnerable</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p2_grafica2|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> los 15 municipios con mayor porcentaje de población vulnerable,
+            ordenados de mayor a menor. Solo se incluyen municipios con al menos 100 registros, para evitar
+            porcentajes altos basados en muy pocos casos. Con el filtro de subregión se ven los municipios
+            de esa zona.
+        </p>
+    </div>
+</div>
+
+<!-- Gráfica 2.3 -->
+<h5>2.3 Evolución anual de la población vulnerable y no vulnerable por etapa</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p2_grafica3|safe }}
+        <p class="small text-muted mt-3">
+            <strong>Cómo leer:</strong> cada barra es un año y muestra la cantidad de registros vulnerables
+            (naranja) y no vulnerables (azul claro). Cada panel tiene su propia escala, porque la etapa
+            Final tiene muchos menos registros. La tabla resume el porcentaje de población vulnerable en
+            cada etapa.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-sm small text-center mb-0">
+                <thead>
+                    <tr><th>Año</th><th>% vulnerable en Subregional</th><th>% vulnerable en Final</th><th>Diferencia</th></tr>
+                </thead>
+                <tbody>
+                    {% for fila in p2_tabla_anual %}
+                    <tr>
+                        <td>{{ fila.año }}</td>
+                        <td>{{ fila.subregional if fila.subregional is not none else "Sin datos" }}{% if fila.subregional is not none %}%{% endif %}</td>
+                        <td>{{ fila.final if fila.final is not none else "Sin etapa Final" }}{% if fila.final is not none %}%{% endif %}</td>
+                        <td>
+                            {% if fila.final is not none and fila.subregional is not none %}
+                                {{ (fila.subregional - fila.final)|round(1) }} pp
+                            {% else %}–{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Hallazgos -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="mt-0">Hallazgos visibles</h5>
+        <p class="small text-muted">Calculados con todas las subregiones y con "Cualquier grupo".</p>
+        <ul class="mb-0">
+            <li>El 15,8% de los registros (8.432) pertenece al menos a un grupo vulnerable y el 84,2% no.
+                Los grupos más frecuentes son población campesina (5.596 registros), víctima (2.749) y en
+                situación de desplazamiento (1.848). 2.073 registros pertenecen a más de un grupo.</li>
+            <li>La población vulnerable llega menos a la Final: es el 16,8% en la etapa Subregional y el
+                11,8% en la Final. Esto ocurre en todos los años con Final, y la diferencia es mayor en 2023
+                (17,7% frente a 11,7%).</li>
+            <li>Occidente (26,3%) y Urabá (25,4%) tienen la mayor proporción de población vulnerable;
+                Valle de Aburrá apenas el 2,3%. Oriente presenta la mayor caída entre etapas (17,8% en la
+                Subregional y 9,5% en la Final), mientras que en Valle de Aburrá y en Nordeste y Magdalena
+                Medio no hay caída.</li>
+            <li>A nivel municipal hay casos donde la población vulnerable es mayoría: Vigía del Fuerte
+                (76,0%), Ituango (70,1%), Belmira (61,1%) y San Rafael (60,8%). En el otro extremo, Gómez
+                Plata, Barbosa y La Pintada tienen menos del 1%.</li>
+            <li>El porcentaje de población vulnerable baja de 18,6% en 2021 a 12,4% en 2025, el valor más
+                bajo del periodo. Al mismo tiempo, los registros con "No registra" en todas las columnas
+                suben de 6,4% en 2022 a 13,3% en 2025.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Conclusión -->
+<div class="card shadow-sm mb-5 bg-light">
+    <div class="card-body">
+        <h5 class="mt-0">Análisis y conclusión</h5>
+        <p>
+            La población vulnerable participa, pero tiene menos presencia a medida que avanza la
+            competencia: su proporción baja de la etapa Subregional a la Final en todos los años
+            comparables. Además, está muy concentrada territorialmente: se ubica sobre todo en Occidente,
+            Urabá y en municipios como Vigía del Fuerte e Ituango, donde es mayoría, y casi no aparece en
+            Valle de Aburrá.
+        </p>
+        <p>
+            <strong>Posible decisión:</strong> acompañar a los participantes vulnerables en el paso de la
+            etapa Subregional a la Final (transporte, alojamiento, acompañamiento), empezando por Oriente,
+            donde la caída entre etapas es mayor, y por los municipios donde la población vulnerable es
+            mayoría.
+        </p>
+        <p class="mb-0">
+            <strong>Limitación:</strong> la disminución entre 2021 y 2025 no puede interpretarse
+            directamente como menos población vulnerable, porque en el mismo periodo creció el número de
+            registros sin información ("No registra"). Además, los datos cuentan registros de participación,
+            no personas.
+        </p>
+    </div>
+</div>
+
 <hr class="my-5">
 <h4>Exploración general</h4>
 
@@ -211,6 +426,8 @@
 <form method="get" class="row g-3 align-items-end mb-4">
     <input type="hidden" name="p1_subregion" value="{{ p1_subregion }}">
     <input type="hidden" name="p1_deporte" value="{{ p1_deporte }}">
+    <input type="hidden" name="p2_subregion" value="{{ p2_subregion }}">
+    <input type="hidden" name="p2_grupo" value="{{ p2_grupo }}">
     <div class="col-md-5">
         <label for="subregion" class="form-label">Territorio</label>
         <select id="subregion" name="subregion" class="form-select">
