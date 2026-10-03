@@ -11,8 +11,206 @@
 
 <hr>
 
+<!-- =============================================================== -->
+<!-- PREGUNTA 1                                                      -->
+<!-- =============================================================== -->
+<h4 class="mt-4">Pregunta 1. Brecha de género por deporte y edad</h4>
+
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Pregunta</h6>
+                <p>
+                    ¿Cuál es la diferencia de género en la participación en los deportes, y esa diferencia
+                    se mantiene en los dos rangos de edad o es más marcada en el rango de 12 a 15 años?
+                </p>
+                <h6 class="text-muted">Variables cruzadas</h6>
+                <p class="mb-0">Género × Deporte × Rango de edad × Subregión × Año</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Variables usadas y su relevancia</h6>
+                <table class="table table-sm small mb-0">
+                    <tbody>
+                        <tr><th>Género</th><td>Variable central: permite calcular el % de mujeres y medir la brecha.</td></tr>
+                        <tr><th>Rango de edad</th><td>Separa 8 a 11 y 12 a 15 años para ver si la brecha cambia con la edad.</td></tr>
+                        <tr><th>Deporte</th><td>Muestra en qué disciplinas la brecha es mayor o se amplía.</td></tr>
+                        <tr><th>Subregión</th><td>Verifica si el comportamiento se repite en todo el territorio.</td></tr>
+                        <tr><th>Año</th><td>Muestra la evolución de hombres y mujeres y qué años son comparables.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de la pregunta 1 -->
+<form method="get" class="row g-3 align-items-end mb-4">
+    <input type="hidden" name="subregion" value="{{ subregion_sel }}">
+    <input type="hidden" name="grupo" value="{{ grupo_sel }}">
+    <div class="col-md-5">
+        <label for="p1_subregion" class="form-label">Subregión (gráficas 1.1 y 1.2)</label>
+        <select id="p1_subregion" name="p1_subregion" class="form-select">
+            <option value="Todas" {% if p1_subregion == "Todas" %}selected{% endif %}>Todas</option>
+            {% for s in subregiones %}
+            <option value="{{ s }}" {% if s == p1_subregion %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-5">
+        <label for="p1_deporte" class="form-label">Deporte (gráficas 1.2 y 1.3)</label>
+        <select id="p1_deporte" name="p1_deporte" class="form-select">
+            <option value="Todos" {% if p1_deporte == "Todos" %}selected{% endif %}>Todos</option>
+            {% for d in deportes %}
+            <option value="{{ d }}" {% if d == p1_deporte %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Aplicar</button>
+    </div>
+</form>
+
+<!-- Indicadores de la pregunta 1 -->
+<div class="row text-center mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Brecha en 8 a 11 años</h6>
+            <h3>{{ p1_brecha_8 }} pp</h3>
+            <small class="text-muted">{{ (100 - p1_mujeres_8)|round(1) }}% hombres · {{ p1_mujeres_8 }}% mujeres</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Brecha en 12 a 15 años</h6>
+            <h3>{{ p1_brecha_12 }} pp</h3>
+            <small class="text-muted">{{ (100 - p1_mujeres_12)|round(1) }}% hombres · {{ p1_mujeres_12 }}% mujeres</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Aumento de la brecha</h6>
+            <h3>{{ p1_aumento_brecha }} pp</h3>
+            <small class="text-muted">al pasar de 8 a 11 a 12 a 15 años</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Mayor caída femenina</h6>
+            <h3>{{ p1_deporte_caida }}</h3>
+            <small class="text-muted">{{ p1_caida }} pp menos de mujeres en 12 a 15</small>
+        </div></div>
+    </div>
+</div>
+<p class="small text-muted">
+    La brecha es la diferencia entre el porcentaje de hombres y el de mujeres, en puntos porcentuales (pp).
+    Se calcula con los años 2021 a 2023.
+</p>
+
+<!-- Gráfica 1.1 -->
+<h5>1.1 Hombres y mujeres por deporte en cada rango de edad</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p1_grafica_a|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> cada barra es un deporte y suma 100%: la parte azul son hombres y
+            la rosada, mujeres. El panel izquierdo es 8 a 11 años y el derecho 12 a 15; compara la misma fila
+            en ambos paneles. Si la parte rosada se achica a la derecha, la brecha crece con la edad. La línea
+            punteada marca la paridad (50%). Incluye 2021 a 2023 y solo deportes con al menos 20 registros
+            en cada rango.
+        </p>
+    </div>
+</div>
+
+<!-- Gráfica 1.2 -->
+<h5>1.2 Evolución anual de hombres y mujeres por rango de edad</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p1_grafica_b|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> cada panel es un rango de edad y cada par de barras un año. La
+            altura es la cantidad de registros de hombres (azul) y mujeres (rosado). Responde a los dos
+            filtros.
+        </p>
+    </div>
+</div>
+
+<!-- Gráfica 1.3 -->
+<h5>1.3 Hombres y mujeres por subregión en cada rango de edad</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p1_grafica_c|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> cada barra es una subregión y suma 100%: azul para hombres y rosado
+            para mujeres. Compara la misma subregión en el panel de 8 a 11 y en el de 12 a 15. Incluye 2021
+            a 2023.
+        </p>
+    </div>
+</div>
+
+<!-- Hallazgos -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="mt-0">Hallazgos visibles</h5>
+        <p class="small text-muted">Calculados con todas las subregiones y todos los deportes.</p>
+        <ul class="mb-0">
+            <li>Entre 2021 y 2023, en el rango de 8 a 11 años hay 54,1% de hombres y 45,9% de mujeres
+                (brecha de 8,2 puntos). En 12 a 15 hay 60,2% de hombres y 39,8% de mujeres (brecha de 20,4
+                puntos). La brecha es 2,5 veces mayor en el rango de más edad.</li>
+            <li>En 13 de los 17 deportes comparables hay menos mujeres en 12 a 15 que en 8 a 11. La caída
+                más fuerte es Natación, que pasa de 66,7% a 37,9% de mujeres: de mayoría femenina a mayoría
+                masculina. Le siguen Ajedrez (45,8% a 33,3%), Judo (48,0% a 38,2%) y Fútbol (20,0% a 13,7%).</li>
+            <li>Voleibol (cerca del 70%) y Patinaje (cerca del 75%) son mayoritariamente femeninos en ambas
+                edades. Atletismo y Levantamiento de Pesas son los únicos donde la participación femenina
+                sube levemente en 12 a 15.</li>
+            <li>Béisbol (prácticamente 0% de mujeres), Fútbol y Ciclismo BMX (alrededor del 20%) tienen una
+                brecha fuerte desde los 8 años, que se mantiene en 12 a 15.</li>
+            <li>En las 7 subregiones la brecha es mayor en 12 a 15 que en 8 a 11. El caso más fuerte es
+                Suroeste, que pasa de 56,3% hombres y 43,7% mujeres a 64,2% y 35,8%. También se amplía
+                bastante en Urabá y Oriente, y muy poco en Occidente.</li>
+            <li>Desde 2024 el rango de 12 a 15 casi desaparece (240 registros en 2024 y 607 en 2025), mientras
+                que el de 8 a 11 pasa de 3.712 registros en 2021 a 11.980 en 2025, con un porcentaje de mujeres
+                estable entre 44% y 47%.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Conclusión -->
+<div class="card shadow-sm mb-5 bg-light">
+    <div class="card-body">
+        <h5 class="mt-0">Análisis y conclusión</h5>
+        <p>
+            Sí existe una diferencia de género en la participación, y es más marcada en el rango de 12 a
+            15 años. El patrón se repite en todas las subregiones y en la mayoría de los deportes, por lo
+            que no parece un caso aislado de un territorio o disciplina. La brecha toma dos formas
+            distintas: en deportes como Béisbol, Fútbol y Ciclismo BMX las mujeres son minoría desde los
+            8 años, mientras que en Natación, Judo y Ajedrez la participación femenina es alta en la niñez
+            y se reduce al llegar a la adolescencia.
+        </p>
+        <p>
+            <strong>Posible decisión:</strong> enfocar estrategias de permanencia de niñas en la transición
+            hacia los 12 años, priorizando Natación, Judo, Ajedrez y Fútbol, y las subregiones Suroeste,
+            Urabá y Oriente, donde la caída es mayor.
+        </p>
+        <p class="mb-0">
+            <strong>Limitación:</strong> los datos cuentan registros de participación, no personas, y no
+            explican las causas de la caída. Además, la comparación entre edades solo es válida para 2021 a
+            2023, porque desde 2024 casi no hay registros de 12 a 15 años.
+        </p>
+    </div>
+</div>
+
+<hr class="my-5">
+<h4>Exploración general</h4>
+
 <!-- FILTROS -->
 <form method="get" class="row g-3 align-items-end mb-4">
+    <input type="hidden" name="p1_subregion" value="{{ p1_subregion }}">
+    <input type="hidden" name="p1_deporte" value="{{ p1_deporte }}">
     <div class="col-md-5">
         <label for="subregion" class="form-label">Territorio</label>
         <select id="subregion" name="subregion" class="form-select">
@@ -95,6 +293,37 @@
             porcentaje de mujeres (la línea punteada marca el 50%) y hacia arriba mayor porcentaje de
             registros en la etapa Final. El tamaño indica la cantidad de registros. Presiona el botón
             de reproducir o mueve la barra para ver el cambio entre 2021 y 2025.
+        </p>
+        <p class="mb-0"><strong>Hallazgos:</strong> Pendiente.</p>
+    </div>
+</div>
+
+<!-- GRÁFICA 2 -->
+<h5>2. Recorrido de la participación por edad y deporte</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ grafica2|safe }}
+        <p class="small text-muted mt-3">
+            <strong>Cómo leer:</strong> cada columna es una variable: año, territorio, rango de edad
+            y deporte (los cinco con más registros). Las cintas unen las categorías y su grosor es la
+            cantidad de registros; el color indica el año. Pasa el cursor sobre una cinta para ver
+            cuántos registros tiene, y arrastra las categorías para reordenarlas.
+        </p>
+        <p class="mb-0"><strong>Hallazgos:</strong> Pendiente.</p>
+    </div>
+</div>
+
+<!-- GRÁFICA 3 -->
+<h5>3. {{ grupo_sel }} por año, territorio y deporte</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ grafica3|safe }}
+        <p class="small text-muted mt-3">
+            <strong>Cómo leer:</strong> el centro de la gráfica son los años; el anillo del medio,
+            los territorios; y el anillo exterior, los cinco deportes con más registros. El tamaño de
+            cada porción es la cantidad de registros y el color indica el porcentaje del grupo
+            vulnerable seleccionado en el filtro (más intenso = mayor porcentaje). Haz clic en una
+            porción para acercarte y en el centro para volver.
         </p>
         <p class="mb-0"><strong>Hallazgos:</strong> Pendiente.</p>
     </div>
