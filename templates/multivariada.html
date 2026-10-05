@@ -4,6 +4,13 @@
 
 {% block content %}
 
+{# Campos ocultos: cada formulario conserva los filtros de las demás secciones #}
+{% macro ocultos(filtros, excluir) %}
+    {% for nombre, valor in filtros.items() if nombre not in excluir %}
+    <input type="hidden" name="{{ nombre }}" value="{{ valor }}">
+    {% endfor %}
+{% endmacro %}
+
 <h1>Análisis relacional y multivariado</h1>
 <p class="text-muted">
     ¿Qué diferencias o relaciones evidentes pueden identificarse al analizar conjuntamente tres o más variables?
@@ -50,10 +57,7 @@
 
 <!-- Filtros de la pregunta 1 -->
 <form method="get" class="row g-3 align-items-end mb-4">
-    <input type="hidden" name="subregion" value="{{ subregion_sel }}">
-    <input type="hidden" name="grupo" value="{{ grupo_sel }}">
-    <input type="hidden" name="p2_subregion" value="{{ p2_subregion }}">
-    <input type="hidden" name="p2_grupo" value="{{ p2_grupo }}">
+    {{ ocultos(filtros, ["p1_subregion", "p1_deporte"]) }}
     <div class="col-md-5">
         <label for="p1_subregion" class="form-label">Subregión (gráficas 1.1 y 1.2)</label>
         <select id="p1_subregion" name="p1_subregion" class="form-select">
@@ -246,10 +250,7 @@
 
 <!-- Filtros de la pregunta 2 -->
 <form method="get" class="row g-3 align-items-end mb-4">
-    <input type="hidden" name="subregion" value="{{ subregion_sel }}">
-    <input type="hidden" name="grupo" value="{{ grupo_sel }}">
-    <input type="hidden" name="p1_subregion" value="{{ p1_subregion }}">
-    <input type="hidden" name="p1_deporte" value="{{ p1_deporte }}">
+    {{ ocultos(filtros, ["p2_subregion", "p2_grupo"]) }}
     <div class="col-md-5">
         <label for="p2_subregion" class="form-label">Subregión (indicadores, gráficas 2.2 y 2.3)</label>
         <select id="p2_subregion" name="p2_subregion" class="form-select">
@@ -419,15 +420,204 @@
     </div>
 </div>
 
+<!-- =============================================================== -->
+<!-- PREGUNTA 3                                                      -->
+<!-- =============================================================== -->
+<hr class="my-5">
+<h4>Pregunta 3. Perfil de quienes llegan a la Final</h4>
+
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Pregunta</h6>
+                <p>
+                    ¿Qué deportistas llegan más a la Final (hombres o mujeres, de qué rango de edad, si son
+                    población vulnerable o no), en qué deportes y en qué subregiones, según el histórico por años?
+                </p>
+                <h6 class="text-muted">Variables cruzadas</h6>
+                <p class="mb-0">Etapa × Género × Rango de edad × Población vulnerable × Deporte × Subregión × Año</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Variables usadas y su relevancia</h6>
+                <table class="table table-sm small mb-0">
+                    <tbody>
+                        <tr><th>Etapa</th><td>Variable que se explica: el % de registros en la Final indica qué grupos llegan más lejos.</td></tr>
+                        <tr><th>Género, rango de edad y población vulnerable</th><td>Juntas forman 8 perfiles de deportista para comparar quién llega más.</td></tr>
+                        <tr><th>Deporte</th><td>Permite ver si la llegada a la Final depende de la disciplina y del género dentro de ella.</td></tr>
+                        <tr><th>Subregión</th><td>Muestra qué territorios llevan más deportistas a la Final.</td></tr>
+                        <tr><th>Año</th><td>Muestra si la llegada a la Final ha cambiado con el tiempo.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="small text-muted">
+    Se usan los años con etapa Final (2021, 2022, 2023 y 2025) y los rangos de 8 a 11 y 12 a 15 años. Se
+    excluyen los deportes que casi solo tienen registros en la Final (90% o más), porque en ellos no hay una
+    fase subregional que comparar: {{ p3_excluidos|join(", ") }}.
+</p>
+
+<!-- Filtros de la pregunta 3 -->
+<form method="get" class="row g-3 align-items-end mb-4">
+    {{ ocultos(filtros, ["p3_subregion", "p3_edad"]) }}
+    <div class="col-md-5">
+        <label for="p3_subregion" class="form-label">Subregión (indicadores, gráficas 3.1 y 3.2)</label>
+        <select id="p3_subregion" name="p3_subregion" class="form-select">
+            <option value="Todas" {% if p3_subregion == "Todas" %}selected{% endif %}>Todas</option>
+            {% for s in subregiones %}
+            <option value="{{ s }}" {% if s == p3_subregion %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-5">
+        <label for="p3_edad" class="form-label">Rango de edad (indicadores, gráficas 3.2 y 3.3)</label>
+        <select id="p3_edad" name="p3_edad" class="form-select">
+            {% for e in edades_p3 %}
+            <option value="{{ e }}" {% if e == p3_edad %}selected{% endif %}>{{ e }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Aplicar</button>
+    </div>
+</form>
+
+<!-- Indicadores de la pregunta 3 -->
+<div class="row text-center mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Registros en la Final</h6>
+            <h3>{{ p3_pct_final }}%</h3>
+            <small class="text-muted">del total de registros comparables</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Perfil que más llega</h6>
+            <h3>{{ p3_pct_perfil_max }}%</h3>
+            <small class="text-muted">{{ p3_perfil_max }}</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Perfil que menos llega</h6>
+            <h3>{{ p3_pct_perfil_min }}%</h3>
+            <small class="text-muted">{{ p3_perfil_min }}</small>
+        </div></div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <h6 class="text-muted">Desventaja vulnerable</h6>
+            <h3>{{ p3_brecha_vulnerable }} pp</h3>
+            <small class="text-muted">menos llegada a la Final que la población no vulnerable</small>
+        </div></div>
+    </div>
+</div>
+
+<!-- Gráfica 3.1 -->
+<h5>3.1 Llegada a la Final por perfil de deportista</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p3_grafica1|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> cada barra es un perfil que combina género, rango de edad y
+            condición. La longitud es el porcentaje de sus registros que llegó a la Final. Naranja indica
+            población vulnerable y azul claro no vulnerable; están ordenados de menor a mayor.
+        </p>
+    </div>
+</div>
+
+<!-- Gráfica 3.2 -->
+<h5>3.2 Llegada a la Final por deporte, hombres y mujeres</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p3_grafica2|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> cada deporte tiene dos barras: azul para hombres y rosado para
+            mujeres. La longitud es el porcentaje de registros que llegó a la Final. Solo se incluyen
+            deportes con al menos 100 registros de cada género.
+        </p>
+    </div>
+</div>
+
+<!-- Gráfica 3.3 -->
+<h5>3.3 Llegada a la Final por subregión y año, según condición</h5>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        {{ p3_grafica3|safe }}
+        <p class="small text-muted mt-3 mb-0">
+            <strong>Cómo leer:</strong> cada casilla es el porcentaje de registros de una subregión que
+            llegó a la Final en un año. Más oscuro significa mayor llegada. El panel izquierdo es la
+            población vulnerable y el derecho la no vulnerable. Los valores de 100% en 2021 corresponden a
+            subregiones que ese año solo tienen registros de la Final.
+        </p>
+    </div>
+</div>
+
+<!-- Hallazgos -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="mt-0">Hallazgos visibles</h5>
+        <p class="small text-muted">Calculados con todas las subregiones y ambos rangos de edad.</p>
+        <ul class="mb-0">
+            <li>El 18,9% de los registros comparables llega a la Final. Los cuatro perfiles con menor
+                llegada son todos de población vulnerable (entre 14,8% y 17,1%), y los dos con mayor llegada
+                son mujeres no vulnerables (20,7% y 21,3%).</li>
+            <li>Ser población vulnerable es el factor que más diferencia la llegada a la Final: 15,9% frente
+                a 19,5% de la no vulnerable. La desventaja se mantiene en hombres y mujeres, en ambos rangos
+                de edad y en deportes de conjunto e individuales.</li>
+            <li>El rango de edad casi no cambia la llegada a la Final (18,8% en 12 a 15 y 18,9% en 8 a 11).
+                Las mujeres llegan algo más que los hombres (20,2% frente a 17,9%).</li>
+            <li>En varios deportes llega más a la Final el género con menos participantes: en Fútbol llega
+                el 25,4% de las mujeres y el 9,1% de los hombres; en Ciclismo BMX, 40,7% frente a 23,9%. Al
+                revés, en Voleibol (20,6% hombres, 9,9% mujeres) y Patinaje (29,5% frente a 13,8%), deportes
+                mayoritariamente femeninos, llegan más los hombres.</li>
+            <li>Urabá es la subregión con mayor llegada a la Final (24,2%) y Occidente la menor (16,0%). En
+                Oriente y Suroeste la población vulnerable llega mucho menos que la no vulnerable (12,9%
+                frente a 19,6% y 11,9% frente a 17,6%); en Valle de Aburrá ocurre lo contrario.</li>
+            <li>La llegada a la Final pasa de 10,7% en 2021 a 22,9% en 2025. Hasta 2022 vulnerables y no
+                vulnerables llegaban en proporción parecida; la brecha aparece desde 2023 (13,5% frente a 18,4%).</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Conclusión -->
+<div class="card shadow-sm mb-5 bg-light">
+    <div class="card-body">
+        <h5 class="mt-0">Análisis y conclusión</h5>
+        <p>
+            El perfil que más llega a la Final es el de una mujer no vulnerable, sin diferencia importante
+            por edad; el que menos llega es el de un hombre en condición de vulnerabilidad. La condición de
+            vulnerabilidad pesa más que el género o la edad, y esa desventaja se hizo visible a partir de
+            2023. Además, el género con menos participantes en cada deporte tiende a llegar más a la Final,
+            probablemente porque compite con menos equipos o deportistas por cada cupo.
+        </p>
+        <p>
+            <strong>Posible decisión:</strong> crear apoyos específicos para que la población vulnerable
+            avance a la Final, empezando por Oriente y Suroeste, y revisar la asignación de cupos por género
+            en deportes como Fútbol, Voleibol y Patinaje.
+        </p>
+        <p class="mb-0">
+            <strong>Limitación:</strong> el porcentaje en la Final no es una tasa de clasificación exacta,
+            porque los datos cuentan registros y no permiten seguir a cada deportista de una etapa a otra.
+            Tampoco se conoce el número de cupos por deporte, que influye directamente en cuántos llegan.
+        </p>
+    </div>
+</div>
+
 <hr class="my-5">
 <h4>Exploración general</h4>
 
 <!-- FILTROS -->
 <form method="get" class="row g-3 align-items-end mb-4">
-    <input type="hidden" name="p1_subregion" value="{{ p1_subregion }}">
-    <input type="hidden" name="p1_deporte" value="{{ p1_deporte }}">
-    <input type="hidden" name="p2_subregion" value="{{ p2_subregion }}">
-    <input type="hidden" name="p2_grupo" value="{{ p2_grupo }}">
+    {{ ocultos(filtros, ["subregion", "grupo"]) }}
     <div class="col-md-5">
         <label for="subregion" class="form-label">Territorio</label>
         <select id="subregion" name="subregion" class="form-select">
