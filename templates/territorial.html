@@ -16,9 +16,49 @@
 <h5>Pregunta de análisis</h5>
 
 <p>
-    ¿Cómo se distribuyen los registros de participación entre
-    las diferentes subregiones y municipios?
+    ¿Cómo se distribuye la población y sus principales características
+    entre los territorios disponibles?
 </p>
+
+
+<h5>Variables utilizadas</h5>
+
+<p>
+    Cada fila del conjunto de datos es un registro de participación
+    ({{ "{:,}".format(total_dataset).replace(",", ".") }} registros en total).
+</p>
+
+<table class="table table-sm table-bordered">
+    <thead>
+        <tr>
+            <th>Variable</th>
+            <th>Tipo</th>
+            <th>Descripción</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>subregion</td>
+            <td>Categórica (territorio)</td>
+            <td>Subregión donde se registra la participación ({{ n_subregiones_total }} categorías).</td>
+        </tr>
+        <tr>
+            <td>municipio</td>
+            <td>Categórica (territorio)</td>
+            <td>Municipio de la participación ({{ n_municipios_total }} municipios).</td>
+        </tr>
+        <tr>
+            <td>genero</td>
+            <td>Categórica</td>
+            <td>Género del participante (Hombre o Mujer).</td>
+        </tr>
+        <tr>
+            <td>año</td>
+            <td>Numérica (temporal)</td>
+            <td>Año del registro; se usa como filtro.</td>
+        </tr>
+    </tbody>
+</table>
 
 
 <h5>Filtros</h5>
@@ -85,6 +125,11 @@
 
 </form>
 
+<p class="text-muted mt-2">
+    Los filtros actualizan los indicadores, las gráficas y sus interpretaciones.
+    Los conocimientos evidentes se calculan con todos los registros.
+</p>
+
 
 <hr>
 
@@ -93,33 +138,32 @@
 
 <div class="row">
 
-    <div class="col-md-4">
-
-        <p>
-            <strong>Total de registros:</strong><br>
+    <div class="col-md-3">
+        <div class="card card-body">
+            <strong>Total de registros</strong>
             {{ "{:,}".format(total_registros).replace(",", ".") }}
-        </p>
-
+        </div>
     </div>
 
-
-    <div class="col-md-4">
-
-        <p>
-            <strong>Municipios:</strong><br>
+    <div class="col-md-3">
+        <div class="card card-body">
+            <strong>Municipios</strong>
             {{ municipios }}
-        </p>
-
+        </div>
     </div>
 
-
-    <div class="col-md-4">
-
-        <p>
-            <strong>Subregiones:</strong><br>
+    <div class="col-md-3">
+        <div class="card card-body">
+            <strong>Subregiones</strong>
             {{ subregiones }}
-        </p>
+        </div>
+    </div>
 
+    <div class="col-md-3">
+        <div class="card card-body">
+            <strong>Subregión con más registros</strong>
+            {{ subregion_lider }}
+        </div>
     </div>
 
 </div>
@@ -134,9 +178,7 @@
 
 <p>
     <strong>Interpretación:</strong>
-    La cantidad de registros varía entre las diferentes
-    subregiones. Algunas presentan una mayor concentración
-    de registros que otras.
+    {{ interp_subregion }}
 </p>
 
 
@@ -149,9 +191,7 @@
 
 <p>
     <strong>Interpretación:</strong>
-    Se observan diferencias entre los municipios. Algunos
-    concentran una mayor cantidad de registros dentro del
-    conjunto de datos.
+    {{ interp_municipios }}
 </p>
 
 
@@ -164,22 +204,64 @@
 
 <p>
     <strong>Interpretación:</strong>
-    La distribución de los registros también presenta
-    diferencias según el género y la subregión.
+    {{ interp_genero }}
 </p>
 
 
 <hr>
 
 
-<h5>Limitación</h5>
+<h4>Conocimientos evidentes</h4>
+
+{% for c in conocimientos %}
+
+<div class="card mb-3">
+
+    <div class="card-header">
+        <strong>Conocimiento {{ loop.index }}: {{ c.titulo }}</strong>
+    </div>
+
+    <div class="card-body">
+        <dl class="row mb-0">
+            {% for etiqueta, texto in c.partes %}
+            <dt class="col-md-2">{{ etiqueta }}</dt>
+            <dd class="col-md-10">{{ texto }}</dd>
+            {% endfor %}
+        </dl>
+    </div>
+
+</div>
+
+{% endfor %}
+
+
+<hr>
+
+
+<h5>Limitación del análisis</h5>
 
 <p>
-    La cantidad de registros no representa necesariamente
-    la cantidad de personas participantes, debido a que un
-    mismo deportista puede aparecer en diferentes registros.
-    Además, no se consideran variables externas como la
-    población de cada municipio o el número de estudiantes
-    potencialmente participantes.
+    La cantidad de registros no representa necesariamente la cantidad de
+    personas participantes, porque un mismo deportista puede aparecer en
+    varios registros. Además, no se conoce la población de cada municipio ni
+    el número de estudiantes potencialmente participantes, por lo que no se
+    puede medir qué proporción participa en cada territorio. Por último,
+    algunas subregiones aparecen también combinadas en los datos (por ejemplo
+    «Norte y Bajo Cauca» o «Nordeste y Magdalena Medio»), de modo que las
+    comparaciones entre las subregiones más pequeñas deben interpretarse con
+    cautela.
 </p>
+
+
+<h5>Decisión sustentada en los datos</h5>
+
+<p>
+    Priorizar la revisión y la promoción de la participación en las
+    subregiones con menor representación ({{ menores }}), mientras que las
+    subregiones con mayor concentración pueden tomarse como referencia. Antes
+    de actuar conviene verificar si esa baja representación corresponde a menor
+    participación real o a que los registros están repartidos entre categorías
+    de subregión combinadas.
+</p>
+
 {% endblock %}
