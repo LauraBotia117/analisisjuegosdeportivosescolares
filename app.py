@@ -136,6 +136,43 @@ def calcular_hallazgos(df):
         "evidencia": "Gráfica 3 (10 deportes con más registros).",
     })
 
+    # ---------- Hallazgo 4: modalidad y etapa ----------
+    conjunto = (df["tipo_deporte"] == "Conjunto").mean() * 100
+    if df["etapa"].nunique() > 1:
+        final = (df["etapa"] == "Final").mean() * 100
+        hallazgos.append({
+            "titulo": "Modalidad y etapa",
+            "cifra": pct_txt(final),
+            "etiqueta": "de los registros corresponde a la etapa Final",
+            "hallazgo": (
+                f"Los deportes de conjunto reúnen {pct_txt(conjunto)} de los registros y "
+                f"la etapa Final {pct_txt(final)}, cerca de 1 de cada {round(100 / final)} "
+                "registros. No es una tasa de clasificación, porque un mismo deportista "
+                "puede tener varios registros."
+            ),
+            "decision": (
+                "Usar esta proporción como referencia para planear los escenarios y el "
+                "alojamiento de la etapa Final, teniendo en cuenta que en los deportes "
+                "de conjunto viajan equipos completos."
+            ),
+            "evidencia": "Tabla «Participación por categoría» (tipo de deporte y etapa).",
+        })
+    else:
+        hallazgos.append({
+            "titulo": "Modalidad del deporte",
+            "cifra": pct_txt(conjunto),
+            "etiqueta": "de los registros corresponde a deportes de conjunto",
+            "hallazgo": (
+                f"Los deportes de conjunto reúnen {pct_txt(conjunto)} de los registros "
+                "analizados."
+            ),
+            "decision": (
+                "Prever transporte y alojamiento para equipos completos en los deportes "
+                "de conjunto."
+            ),
+            "evidencia": "Tabla «Participación por categoría» (tipo de deporte).",
+        })
+    
     return hallazgos
 
 @app.route("/poblacional")
