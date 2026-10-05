@@ -34,6 +34,110 @@ def inicio():
     return render_template("index.html")
 
 
+def coma_txt(valor, decimales=2):
+    """11.886 -> '11,89'"""
+    return f"{valor:.{decimales}f}".replace(".", ",")
+
+
+def pct_txt(valor, decimales=2):
+    """55.94 -> '55,94 %'"""
+    return coma_txt(valor, decimales) + " %"
+
+
+def calcular_hallazgos(df):
+    """Convierte los datos (ya filtrados) en hallazgos con una decisión asociada.
+
+    Cada hallazgo es un diccionario con:
+      titulo     tema del hallazgo
+      cifra      dato clave que se muestra en grande
+      etiqueta   qué significa la cifra
+      hallazgo   comportamiento identificado en los datos
+      decision   decisión que ese hallazgo permite sustentar
+      evidencia  dónde se ve en el tablero
+    """
+    hallazgos = []
+    if len(df) == 0:
+        return hallazgos
+
+    # ---------- Hallazgo 1: género ----------
+    art = {"Hombre": "los hombres", "Mujer": "las mujeres"}
+    g = df["genero"].value_counts(normalize=True) * 100
+    if len(g) > 1:
+        mayor, menor = g.index[0], g.index[1]
+        diferencia = g.iloc[0] - g.iloc[1]
+        if diferencia >= 5:
+            decision = (
+                "Diseñar estrategias de convocatoria y permanencia dirigidas a "
+                f"{art.get(menor, menor)}, que son el grupo con menor presencia."
+            )
+        else:
+            decision = (
+                "La participación por género es casi paritaria: mantener el "
+                "seguimiento anual sin priorizar un grupo."
+            )
+        hallazgos.append({
+            "titulo": "Participación por género",
+            "cifra": coma_txt(diferencia) + " pp",
+            "etiqueta": (
+                "puntos porcentuales de diferencia entre "
+                f"{art.get(mayor, mayor)} y {art.get(menor, menor)}"
+            ),
+            "hallazgo": (
+                f"{art.get(mayor, mayor).capitalize()} representan {pct_txt(g.iloc[0])} "
+                f"de los registros y {art.get(menor, menor)} {pct_txt(g.iloc[1])}."
+            ),
+            "decision": decision,
+            "evidencia": "Gráfica 1 y tabla «Participación por categoría».",
+        })
+
+    # ---------- Hallazgo 2: edad ----------
+    escolar = df["rango_edad"].isin(["8 a 11", "12 a 15"]).mean() * 100
+    mayores = df["rango_edad"].isin(["16 a 19", "20 a 23"]).mean() * 100
+    sin_edad = (df["rango_edad"] == "No registra").mean() * 100
+    hallazgos.append({
+        "titulo": "Edad de los participantes",
+        "cifra": pct_txt(escolar),
+        "etiqueta": "de los registros corresponde a niños y adolescentes de 8 a 15 años",
+        "hallazgo": (
+            f"Los rangos de 8 a 11 y de 12 a 15 años reúnen {pct_txt(escolar)} de los "
+            f"registros. Los de 16 a 23 años suman {pct_txt(mayores)} y el "
+            f"{pct_txt(sin_edad)} no informa la edad."
+        ),
+        "decision": (
+            "Dimensionar escenarios, entrenadores y calendario de competencias para "
+            "las edades de 8 a 15 años; si se desea ampliar la cobertura, revisar por "
+            "qué casi no hay participantes de 16 años en adelante."
+        ),
+        "evidencia": "Gráfica 2 (registros por rango de edad).",
+    })
+
+    # ---------- Hallazgo 3: concentración por deporte ----------
+    conteo = df["deporte"].value_counts()
+    top5 = conteo.head(5)
+    top5_pct = top5.sum() / len(df) * 100
+    pocos = int((conteo / len(df) * 100 < 1).sum())
+    if pocos == 0:
+        extra = ""
+    elif pocos == 1:
+        extra = ", y 1 deporte tiene menos de 1 % de los registros"
+    else:
+        extra = f", y {pocos} deportes tienen cada uno menos de 1 % de los registros"
+    hallazgos.append({
+        "titulo": "Concentración por deporte",
+        "cifra": pct_txt(top5_pct),
+        "etiqueta": f"de los registros está en solo {len(top5)} de los {len(conteo)} deportes",
+        "hallazgo": (
+            f"{', '.join(top5.index)} reúnen {pct_txt(top5_pct)} de los registros{extra}."
+        ),
+        "decision": (
+            "Priorizar escenarios, jueces y apoyo logístico para los deportes de mayor "
+            "demanda y diseñar un plan de promoción para los de menor participación."
+        ),
+        "evidencia": "Gráfica 3 (10 deportes con más registros).",
+    })
+
+    return hallazgos
+
 @app.route("/poblacional")
 def poblacional():
     df_total = cargar_datos()
@@ -190,8 +294,9 @@ def poblacional():
             f"pertenecer a más de un grupo."
         )
 
-    # -----------------------------
-    # CONOCIMIENTOS EVIDENTES (siempre sobre el total de los datos)
+     hallazgos = calcular_hallazgos(df)
+   # -----------------------------
+    # CONOCIMIENTOS EVIDENTES 
     # -----------------------------
     T = len(df_total)
     gt = df_total["genero"].value_counts(normalize=True) * 100
@@ -262,6 +367,7 @@ def poblacional():
         grafica_poblacion=a_html(fig_poblacion) if hay_datos else "",
         interpretaciones=interpretaciones,
         conocimientos=conocimientos,
+         hallazgos=hallazgos,
         años=sorted(df_total["año"].unique()),
         etapas=sorted(df_total["etapa"].unique()),
         año_seleccionado=año,
