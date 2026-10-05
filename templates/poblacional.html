@@ -205,12 +205,33 @@
     puede medir qué proporción de los estudiantes participa.
 </p>
 
-<h5>Decisión sustentada en los datos</h5>
+<h5>Decisiones sustentadas en los datos</h5>
 <p>
-    Dado que la participación se concentra en edades de 8 a 15 años y en pocos deportes, y que
-    existe una diferencia entre hombres y mujeres, se podría priorizar el apoyo a los deportes
-    con menor participación y diseñar estrategias de convocatoria dirigidas a las mujeres,
-    verificando antes el detalle por deporte y territorio en las otras dimensiones.
+    Cada decisión se apoya en un hallazgo y en su cifra de respaldo (se recalculan con los filtros).
+</p>
+
+<table class="table table-sm table-striped">
+    <thead>
+        <tr>
+            <th>Hallazgo</th>
+            <th>Cifra de respaldo</th>
+            <th>Decisión posible</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for h in hallazgos %}
+        <tr>
+            <td>{{ h.titulo }}</td>
+            <td>{{ h.cifra }}</td>
+            <td>{{ h.decision }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p class="text-muted">
+    Antes de aplicar estas decisiones conviene verificar el detalle por deporte y territorio
+    en las dimensiones territorial y multivariada.
 </p>
 
 {% endif %}
