@@ -103,6 +103,31 @@
 
 <hr>
 
+<h5>Hallazgos clave y decisiones</h5>
+<p class="text-muted">
+    Cada hallazgo resume un comportamiento de la población y la decisión que permite
+    sustentar. Se recalculan con los filtros aplicados.
+</p>
+
+<div class="row">
+    {% for h in hallazgos %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 hallazgo-card">
+            <div class="card-body">
+                <h6 class="hallazgo-titulo">{{ loop.index }}. {{ h.titulo }}</h6>
+                <p class="hallazgo-cifra">{{ h.cifra }}</p>
+                <p class="hallazgo-etiqueta">{{ h.etiqueta }}</p>
+                <p><strong>Hallazgo:</strong> {{ h.hallazgo }}</p>
+                <p><strong>Decisión posible:</strong> {{ h.decision }}</p>
+                <p class="hallazgo-evidencia">Evidencia: {{ h.evidencia }}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<hr>
+
 <h5>Participación por categoría</h5>
 
 <table class="table table-sm table-striped">
