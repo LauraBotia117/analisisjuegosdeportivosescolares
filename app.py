@@ -172,7 +172,56 @@ def calcular_hallazgos(df):
             ),
             "evidencia": "Tabla «Participación por categoría» (tipo de deporte).",
         })
-    
+
+    # ---------- Hallazgo 5: poblaciones diferenciales ----------
+    columnas_pob = [c for c in df.columns if c.startswith("Población")]
+    marcados = df[columnas_pob].eq("Sí")
+    con_alguna = marcados.any(axis=1).mean() * 100
+    por_grupo = marcados.mean().sort_values(ascending=False) * 100
+
+    def nombre_pob(columna):
+        texto = columna.replace("Población ", "", 1)
+        return texto[3:] if texto.startswith("en ") else texto
+
+    primero, segundo, ultimo = por_grupo.index[0], por_grupo.index[1], por_grupo.index[-1]
+    hallazgos.append({
+        "titulo": "Poblaciones diferenciales",
+        "cifra": pct_txt(con_alguna),
+        "etiqueta": "de los registros pertenece al menos a una población diferencial",
+        "hallazgo": (
+            f"Las de mayor presencia son «{nombre_pob(primero)}» ({pct_txt(por_grupo[primero])}) "
+            f"y «{nombre_pob(segundo)}» ({pct_txt(por_grupo[segundo])}); la de menor presencia "
+            f"es «{nombre_pob(ultimo)}» ({pct_txt(por_grupo[ultimo])}). Un mismo registro "
+            "puede pertenecer a más de un grupo."
+        ),
+        "decision": (
+            "Incluir el enfoque diferencial en la convocatoria, el transporte y el "
+            f"acompañamiento, empezando por las poblaciones «{nombre_pob(primero)}» y "
+            f"«{nombre_pob(segundo)}», que concentran más registros."
+        ),
+        "evidencia": "Gráfica 4 (poblaciones diferenciales).",
+    })
+
+ # ---------- Hallazgo 6: calidad de los datos ----------
+    sin_dato = (df[columnas_pob] == "No registra").mean() * 100
+    peor = sin_dato.idxmax()
+    hallazgos.append({
+        "titulo": "Calidad de los datos",
+        "cifra": pct_txt(sin_dato.max()),
+        "etiqueta": f"de los registros no informa la población «{nombre_pob(peor)}», la variable con más datos faltantes",
+        "hallazgo": (
+            f"Entre {pct_txt(sin_dato.min())} y {pct_txt(sin_dato.max())} de los registros "
+            "dicen «No registra» en las variables de población diferencial, y "
+            f"{pct_txt(sin_edad)} en el rango de edad."
+        ),
+        "decision": (
+            "Hacer obligatorio el diligenciamiento de las variables poblacionales en la "
+            "inscripción y tomar las cifras de poblaciones diferenciales como un mínimo, "
+            "no como el total real."
+        ),
+        "evidencia": "Variables «Población ...» (valores «No registra») y gráfica 4.",
+    })
+
     return hallazgos
 
 @app.route("/poblacional")
@@ -332,6 +381,36 @@ def poblacional():
         )
 
      hallazgos = calcular_hallazgos(df)
+
+
+# -----------------------------
+    # DECISIÓN POSIBLE POR GRÁFICA
+    # -----------------------------
+    decisiones = {}
+    if hay_datos:
+        articulos = {"Hombre": "los hombres", "Mujer": "las mujeres"}
+        if len(g) > 1 and (g.iloc[0] - g.iloc[1]) >= 5:
+            decisiones["genero"] = (
+                "Diseñar estrategias de convocatoria y permanencia dirigidas a "
+                f"{articulos.get(g.index[1], g.index[1])}, que tienen menor presencia."
+            )
+        else:
+            decisiones["genero"] = (
+                "La participación por género es casi paritaria: mantener el seguimiento anual."
+            )
+        decisiones["edad"] = (
+            f"Dimensionar escenarios, entrenadores y calendario para el rango "
+            f"«{e.iloc[0]['rango_edad']}», que concentra la mayor parte de los registros."
+        )
+        decisiones["deporte"] = (
+            f"Priorizar escenarios y apoyo logístico para «{d.iloc[0]['deporte']}» y los "
+            "demás deportes de mayor demanda."
+        )
+        decisiones["poblacion"] = (
+            "Incluir el enfoque diferencial en la convocatoria y el acompañamiento, "
+            f"empezando por la población «{p.iloc[0]['grupo']}»."
+        )
+    
    # -----------------------------
     # CONOCIMIENTOS EVIDENTES 
     # -----------------------------
