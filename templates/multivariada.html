@@ -18,6 +18,12 @@
 
 <hr>
 
+<p class="text-muted small">
+    Nota: en 2024 algunas subregiones se fusionaron. Para comparar los cinco años, los registros
+    de 2021 a 2023 de Norte y Bajo Cauca se agrupan como "Norte y Bajo Cauca", y los de Nordeste
+    y Magdalena Medio como "Nordeste y Magdalena Medio".
+</p>
+
 <!-- =============================================================== -->
 <!-- PREGUNTA 1                                                      -->
 <!-- =============================================================== -->
@@ -609,130 +615,6 @@
             porque los datos cuentan registros y no permiten seguir a cada deportista de una etapa a otra.
             Tampoco se conoce el número de cupos por deporte, que influye directamente en cuántos llegan.
         </p>
-    </div>
-</div>
-
-<hr class="my-5">
-<h4>Exploración general</h4>
-
-<!-- FILTROS -->
-<form method="get" class="row g-3 align-items-end mb-4">
-    {{ ocultos(filtros, ["subregion", "grupo"]) }}
-    <div class="col-md-5">
-        <label for="subregion" class="form-label">Territorio</label>
-        <select id="subregion" name="subregion" class="form-select">
-            <option value="Todas" {% if subregion_sel == "Todas" %}selected{% endif %}>
-                Todas (comparar subregiones)
-            </option>
-            {% for s in subregiones %}
-            <option value="{{ s }}" {% if s == subregion_sel %}selected{% endif %}>
-                {{ s }} (ver sus municipios)
-            </option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="col-md-5">
-        <label for="grupo" class="form-label">Grupo de población vulnerable</label>
-        <select id="grupo" name="grupo" class="form-select">
-            {% for g in grupos %}
-            <option value="{{ g }}" {% if g == grupo_sel %}selected{% endif %}>{{ g }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="col-md-2">
-        <button type="submit" class="btn btn-primary w-100">Aplicar</button>
-    </div>
-</form>
-
-<!-- INDICADORES -->
-<div class="row text-center mb-4">
-    <div class="col-md-3 mb-3">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="text-muted">Registros analizados</h6>
-                <h3>{{ "{:,}".format(total_registros) }}</h3>
-                <small class="text-muted">{{ num_territorios }} territorios · 2021 – 2025</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-3">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="text-muted">Combinación más frecuente</h6>
-                <h3>{{ "{:,}".format(combo_registros) }}</h3>
-                <small class="text-muted">{{ combo_nombre }}</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-3">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="text-muted">Mayor % de mujeres en la Final</h6>
-                <h3>{{ mujeres_final_pct }}%</h3>
-                <small class="text-muted">{{ mujeres_final_nombre }}</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-3">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h6 class="text-muted">Año con más {{ grupo_sel|lower }}</h6>
-                <h3>{{ vulnerable_año }}</h3>
-                <small class="text-muted">{{ vulnerable_pct }}% de los registros de ese año</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<p class="text-muted small">
-    Nota: en 2024 algunas subregiones se fusionaron. Para comparar los cinco años, los registros
-    de 2021 a 2023 de Norte y Bajo Cauca se agrupan como "Norte y Bajo Cauca", y los de Nordeste
-    y Magdalena Medio como "Nordeste y Magdalena Medio".
-</p>
-
-<!-- GRÁFICA 1 -->
-<h5>1. Participación femenina y llegada a la Final por territorio</h5>
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        {{ grafica1|safe }}
-        <p class="small text-muted mt-3">
-            <strong>Cómo leer:</strong> cada burbuja es un territorio. Hacia la derecha hay mayor
-            porcentaje de mujeres (la línea punteada marca el 50%) y hacia arriba mayor porcentaje de
-            registros en la etapa Final. El tamaño indica la cantidad de registros. Presiona el botón
-            de reproducir o mueve la barra para ver el cambio entre 2021 y 2025.
-        </p>
-        <p class="mb-0"><strong>Hallazgos:</strong> Pendiente.</p>
-    </div>
-</div>
-
-<!-- GRÁFICA 2 -->
-<h5>2. Recorrido de la participación por edad y deporte</h5>
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        {{ grafica2|safe }}
-        <p class="small text-muted mt-3">
-            <strong>Cómo leer:</strong> cada columna es una variable: año, territorio, rango de edad
-            y deporte (los cinco con más registros). Las cintas unen las categorías y su grosor es la
-            cantidad de registros; el color indica el año. Pasa el cursor sobre una cinta para ver
-            cuántos registros tiene, y arrastra las categorías para reordenarlas.
-        </p>
-        <p class="mb-0"><strong>Hallazgos:</strong> Pendiente.</p>
-    </div>
-</div>
-
-<!-- GRÁFICA 3 -->
-<h5>3. {{ grupo_sel }} por año, territorio y deporte</h5>
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        {{ grafica3|safe }}
-        <p class="small text-muted mt-3">
-            <strong>Cómo leer:</strong> el centro de la gráfica son los años; el anillo del medio,
-            los territorios; y el anillo exterior, los cinco deportes con más registros. El tamaño de
-            cada porción es la cantidad de registros y el color indica el porcentaje del grupo
-            vulnerable seleccionado en el filtro (más intenso = mayor porcentaje). Haz clic en una
-            porción para acercarte y en el centro para volver.
-        </p>
-        <p class="mb-0"><strong>Hallazgos:</strong> Pendiente.</p>
     </div>
 </div>
 
