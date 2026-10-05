@@ -550,5 +550,377 @@ def temporal():
         grafica_municipios=a_html(fig_muni),
         conclusiones=conclusiones,
     )
+
+
+# =====================================================================
+# DIMENSIÓN RELACIONAL Y MULTIVARIADA (Integrante 4)
+# Organizada en tres preguntas que cruzan población, territorio y año
+# =====================================================================
+
+# Las subregiones cambiaron en 2024: se agrupan los años 2021-2023
+# con los mismos nombres de 2024-2025 para poder compararlos.
+HOMOLOGACION_SUBREGION = {
+    "Norte": "Norte y Bajo Cauca",
+    "Bajo Cauca": "Norte y Bajo Cauca",
+    "Nordeste": "Nordeste y Magdalena Medio",
+    "Magdalena Medio": "Nordeste y Magdalena Medio",
+}
+
+# Columnas de población vulnerable disponibles en el dataset
+GRUPOS_VULNERABLES = [
+    "Población víctima",
+    "Población en Situación de desplazamiento",
+    "Población campesina",
+    "Población con discapacidad",
+    "Población migrante",
+    "Población en proceso de reincorporación",
+    "Población LGTBI",
+]
+
+# Rangos de edad con datos suficientes (los demás tienen 4 registros en total)
+RANGOS_EDAD = ["8 a 11", "12 a 15"]
+
+
+# ---------------------------------------------------------------------
+# PREGUNTA 1: brecha de género por deporte y rango de edad
+# ---------------------------------------------------------------------
+COLOR_GENERO = {"Hombre": "#1f77b4", "Mujer": "#e377c2"}
+AÑOS_COMPARABLES = [2021, 2022, 2023]  # desde 2024 casi no hay registros de 12 a 15 años
+MIN_REGISTROS_DEPORTE = 20  # mínimo por rango de edad para mostrar un deporte
+
+
+def pregunta_genero_edad(df, subregion_sel, deporte_sel):
+    """Calcula indicadores y gráficas de la pregunta 1."""
+    df = df[df["rango_edad"].isin(RANGOS_EDAD)].copy()
+    df["es_mujer"] = (df["genero"] == "Mujer") * 100
+
+    # Cada gráfica usa un filtro distinto (se explica en la página)
+    df_sub = df if subregion_sel == "Todas" else df[df["subregion_h"] == subregion_sel]
+    df_dep = df if deporte_sel == "Todos" else df[df["deporte"] == deporte_sel]
+    df_ambos = df_sub if deporte_sel == "Todos" else df_sub[df_sub["deporte"] == deporte_sel]
+
+    def a_html(fig, alto=500):
+        fig.update_layout(margin=dict(t=40, b=40), height=alto)
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    # --- Indicadores (años comparables, con ambos filtros) ---
+    # Brecha = % de hombres - % de mujeres (en puntos porcentuales)
+    comparable = df_ambos[df_ambos["año"].isin(AÑOS_COMPARABLES)]
+    pct = comparable.groupby("rango_edad")["es_mujer"].mean()
+    mujeres_8 = round(float(pct.get("8 a 11", 0)), 1)
+    mujeres_12 = round(float(pct.get("12 a 15", 0)), 1)
+    brecha_8 = round(100 - 2 * mujeres_8, 1)    # (100 - M) - M
+    brecha_12 = round(100 - 2 * mujeres_12, 1)
+    aumento_brecha = round(brecha_12 - brecha_8, 1)
+
+    # --- Gráfica 1.1: % de hombres y mujeres por deporte en cada rango de edad ---
+    base_a = df_sub[df_sub["año"].isin(AÑOS_COMPARABLES)]
+    conteo = base_a.groupby(["deporte", "rango_edad"])["es_mujer"].agg(["mean", "size"]).unstack()
+    conteo = conteo[(conteo["size"] >= MIN_REGISTROS_DEPORTE).all(axis=1)]  # datos en ambos rangos
+    orden_deportes = conteo["mean"]["8 a 11"].sort_values().index.tolist()
+
+    ga = (base_a[base_a["deporte"].isin(orden_deportes)]
+          .groupby(["deporte", "rango_edad"])["genero"]
+          .value_counts(normalize=True).mul(100).round(1)
+          .reset_index(name="porcentaje"))
+
+    fig_a = px.bar(
+        ga, x="porcentaje", y="deporte", color="genero", facet_col="rango_edad",
+        orientation="h", barmode="stack", text_auto=".0f",
+        category_orders={"deporte": orden_deportes, "rango_edad": RANGOS_EDAD,
+                         "genero": ["Hombre", "Mujer"]},
+        color_discrete_map=COLOR_GENERO,
+        labels={"porcentaje": "% de registros", "deporte": "Deporte",
+                "genero": "Género", "rango_edad": "Rango de edad"},
+    )
+    fig_a.add_vline(x=50, line_dash="dot", line_color="white")
+    fig_a.update_layout(legend=dict(orientation="h", y=1.08))
+    grafica_a = a_html(fig_a, alto=max(450, 30 * len(orden_deportes)))
+
+    # Deporte donde más cae la participación femenina al pasar a 12 a 15
+    cambio = (conteo["mean"]["8 a 11"] - conteo["mean"]["12 a 15"]).sort_values()
+    deporte_mayor_caida = cambio.index[-1] if len(cambio) else "Sin datos"
+    caida_max = round(float(cambio.iloc[-1]), 1) if len(cambio) else 0
+
+    # --- Gráfica 1B: cantidad de hombres y mujeres por año y rango de edad ---
+    gb = df_ambos.groupby(["año", "rango_edad", "genero"]).size().reset_index(name="registros")
+    fig_b = px.bar(
+        gb, x="año", y="registros", color="genero", barmode="group",
+        facet_col="rango_edad", text_auto=True,
+        category_orders={"rango_edad": RANGOS_EDAD},
+        color_discrete_map=COLOR_GENERO,
+        labels={"año": "Año", "registros": "Registros", "genero": "Género", "rango_edad": "Rango de edad"},
+    )
+    fig_b.update_xaxes(dtick=1)
+    grafica_b = a_html(fig_b, alto=450)
+
+    # --- Gráfica 1.3: % de hombres y mujeres por subregión en cada rango de edad ---
+    base_c = df_dep[df_dep["año"].isin(AÑOS_COMPARABLES)]
+    gc = (base_c.groupby(["subregion_h", "rango_edad"])["genero"]
+          .value_counts(normalize=True).mul(100).round(1)
+          .reset_index(name="porcentaje"))
+    fig_c = px.bar(
+        gc, x="porcentaje", y="subregion_h", color="genero", facet_col="rango_edad",
+        orientation="h", barmode="stack", text_auto=".0f",
+        category_orders={"rango_edad": RANGOS_EDAD, "genero": ["Hombre", "Mujer"]},
+        color_discrete_map=COLOR_GENERO,
+        labels={"porcentaje": "% de registros", "subregion_h": "Subregión",
+                "genero": "Género", "rango_edad": "Rango de edad"},
+    )
+    fig_c.add_vline(x=50, line_dash="dot", line_color="white")
+    fig_c.update_layout(legend=dict(orientation="h", y=1.1))
+    grafica_c = a_html(fig_c, alto=420)
+
+    return dict(
+        p1_mujeres_8=mujeres_8, p1_mujeres_12=mujeres_12,
+        p1_brecha_8=brecha_8, p1_brecha_12=brecha_12, p1_aumento_brecha=aumento_brecha,
+        p1_deporte_caida=deporte_mayor_caida, p1_caida=caida_max,
+        p1_grafica_a=grafica_a, p1_grafica_b=grafica_b, p1_grafica_c=grafica_c,
+    )
+
+
+# ---------------------------------------------------------------------
+# PREGUNTA 2: población vulnerable y no vulnerable por etapa, territorio y año
+# ---------------------------------------------------------------------
+COLOR_VULNERABLE = {"Vulnerable": "#e76f51", "No vulnerable": "#8ecae6"}
+ORDEN_VULNERABLE = ["Vulnerable", "No vulnerable"]
+ORDEN_ETAPAS = ["Subregional", "Final"]
+MIN_REGISTROS_MUNICIPIO = 100  # mínimo para mostrar el porcentaje de un municipio
+MAX_MUNICIPIOS_P2 = 15
+
+
+def pregunta_vulnerable(df, subregion_sel, grupo_sel):
+    """Calcula indicadores y gráficas de la pregunta 2."""
+    df = df.copy()
+
+    # Un registro es "Vulnerable" si tiene "Sí" en el grupo elegido
+    # (o en al menos uno de los grupos, si se elige "Cualquier grupo").
+    # "No" y "No registra" se cuentan como "No vulnerable".
+    columnas = GRUPOS_VULNERABLES if grupo_sel == "Cualquier grupo" else [grupo_sel]
+    es_vulnerable = (df[columnas] == "Sí").any(axis=1)
+    df["condicion"] = es_vulnerable.map({True: "Vulnerable", False: "No vulnerable"})
+    df["es_vulnerable"] = es_vulnerable * 100
+
+    df_sub = df if subregion_sel == "Todas" else df[df["subregion_h"] == subregion_sel]
+
+    def a_html(fig, alto=450):
+        fig.update_layout(margin=dict(t=40, b=40), height=alto,
+                          legend=dict(orientation="h", y=1.1))
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    def porcentajes(datos, grupos):
+        """% de vulnerables y no vulnerables dentro de cada grupo."""
+        return (datos.groupby(grupos)["condicion"]
+                .value_counts(normalize=True).mul(100).round(1)
+                .reset_index(name="porcentaje"))
+
+    etiquetas = {"porcentaje": "% de registros", "condicion": "Condición",
+                 "subregion_h": "Subregión", "municipio": "Municipio",
+                 "etapa": "Etapa", "año": "Año", "registros": "Registros"}
+    orden = {"condicion": ORDEN_VULNERABLE, "etapa": ORDEN_ETAPAS}
+
+    # --- Indicadores (con el filtro de subregión) ---
+    total_vulnerables = int(es_vulnerable[df_sub.index].sum())
+    pct_vulnerable = round(float(df_sub["es_vulnerable"].mean()), 1)
+    por_etapa = df_sub.groupby("etapa")["es_vulnerable"].mean()
+    pct_subregional = round(float(por_etapa.get("Subregional", 0)), 1)
+    pct_final = round(float(por_etapa.get("Final", 0)), 1)
+
+    por_municipio = df_sub.groupby("municipio")["es_vulnerable"].agg(["mean", "size"])
+    por_municipio = por_municipio[por_municipio["size"] >= MIN_REGISTROS_MUNICIPIO]
+    if por_municipio.empty:
+        municipio_max, pct_municipio_max = "Sin datos", 0
+    else:
+        municipio_max = por_municipio["mean"].idxmax()
+        pct_municipio_max = round(float(por_municipio["mean"].max()), 1)
+
+    # --- Gráfica 2.1: vulnerables y no vulnerables por subregión y etapa ---
+    g1 = porcentajes(df, ["subregion_h", "etapa"])
+    fig1 = px.bar(
+        g1, x="porcentaje", y="subregion_h", color="condicion", facet_col="etapa",
+        orientation="h", barmode="stack", text_auto=".0f",
+        category_orders=orden, color_discrete_map=COLOR_VULNERABLE, labels=etiquetas,
+    )
+    grafica1 = a_html(fig1, alto=420)
+
+    # --- Gráfica 2.2: municipios con mayor porcentaje de población vulnerable ---
+    orden_mun = por_municipio["mean"].sort_values(ascending=False).head(MAX_MUNICIPIOS_P2).index
+    g2 = porcentajes(df_sub[df_sub["municipio"].isin(orden_mun)], ["municipio"])
+    fig2 = px.bar(
+        g2, x="porcentaje", y="municipio", color="condicion",
+        orientation="h", barmode="stack", text_auto=".0f",
+        category_orders={**orden, "municipio": list(orden_mun)},
+        color_discrete_map=COLOR_VULNERABLE, labels=etiquetas,
+    )
+    grafica2 = a_html(fig2, alto=max(350, 32 * len(orden_mun)))
+
+    # --- Gráfica 2.3: evolución anual por etapa (cantidad de registros) ---
+    g3 = df_sub.groupby(["año", "etapa", "condicion"]).size().reset_index(name="registros")
+    fig3 = px.bar(
+        g3, x="año", y="registros", color="condicion", facet_col="etapa",
+        barmode="stack", text_auto=True,
+        category_orders=orden, color_discrete_map=COLOR_VULNERABLE, labels=etiquetas,
+    )
+    fig3.update_xaxes(dtick=1)
+    fig3.update_yaxes(matches=None, showticklabels=True)  # cada etapa con su propia escala
+    grafica3 = a_html(fig3, alto=450)
+
+    # % de vulnerables por año y etapa (tabla debajo de la gráfica 2.3)
+    tabla = (df_sub.groupby(["año", "etapa"])["es_vulnerable"].mean().round(1)
+             .unstack().reindex(columns=ORDEN_ETAPAS))
+    tabla_anual = [
+        dict(año=int(año),
+             subregional=fila["Subregional"] if pd.notna(fila["Subregional"]) else None,
+             final=fila["Final"] if pd.notna(fila["Final"]) else None)
+        for año, fila in tabla.iterrows()
+    ]
+
+    return dict(
+        p2_total_vulnerables=total_vulnerables, p2_pct_vulnerable=pct_vulnerable,
+        p2_pct_subregional=pct_subregional, p2_pct_final=pct_final,
+        p2_municipio_max=municipio_max, p2_pct_municipio_max=pct_municipio_max,
+        p2_tabla_anual=tabla_anual,
+        p2_grafica1=grafica1, p2_grafica2=grafica2, p2_grafica3=grafica3,
+    )
+
+
+# ---------------------------------------------------------------------
+# PREGUNTA 3: perfil de quienes llegan a la etapa Final
+# ---------------------------------------------------------------------
+AÑOS_CON_FINAL = [2021, 2022, 2023, 2025]  # en 2024 no hubo etapa Final
+UMBRAL_SIN_SUBREGIONAL = 90  # deportes con 90% o más de registros en la Final no tienen fase subregional real
+MIN_REGISTROS_DEPORTE_P3 = 100  # mínimo por género para mostrar un deporte
+
+
+def pregunta_final(df, subregion_sel, edad_sel):
+    """Calcula indicadores y gráficas de la pregunta 3."""
+    df = df[df["año"].isin(AÑOS_CON_FINAL) & df["rango_edad"].isin(RANGOS_EDAD)].copy()
+
+    # Se excluyen los deportes que casi solo tienen registros en la Final
+    pct_final_deporte = df.groupby("deporte")["etapa"].apply(lambda s: (s == "Final").mean() * 100)
+    excluidos = sorted(pct_final_deporte[pct_final_deporte >= UMBRAL_SIN_SUBREGIONAL].index)
+    df = df[~df["deporte"].isin(excluidos)]
+
+    es_vulnerable = (df[GRUPOS_VULNERABLES] == "Sí").any(axis=1)
+    df["condicion"] = es_vulnerable.map({True: "Vulnerable", False: "No vulnerable"})
+    df["es_final"] = (df["etapa"] == "Final") * 100
+    df["perfil"] = df["genero"] + " · " + df["rango_edad"] + " · " + df["condicion"]
+
+    df_sub = df if subregion_sel == "Todas" else df[df["subregion_h"] == subregion_sel]
+    df_edad = df if edad_sel == "Todos" else df[df["rango_edad"] == edad_sel]
+    df_ambos = df_sub if edad_sel == "Todos" else df_sub[df_sub["rango_edad"] == edad_sel]
+
+    def a_html(fig, alto=450):
+        fig.update_layout(margin=dict(t=40, b=40), height=alto,
+                          legend=dict(orientation="h", y=1.1))
+        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+        return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+    etiquetas = {"es_final": "% de registros en la Final", "perfil": "Perfil",
+                 "condicion": "Condición", "genero": "Género", "deporte": "Deporte",
+                 "subregion_h": "Subregión", "año": "Año"}
+
+    # --- Indicadores (con ambos filtros) ---
+    pct_final = round(float(df_ambos["es_final"].mean()), 1)
+    por_condicion = df_ambos.groupby("condicion")["es_final"].mean()
+    brecha_vulnerable = round(float(por_condicion.get("No vulnerable", 0) - por_condicion.get("Vulnerable", 0)), 1)
+
+    # --- Gráfica 3.1: % que llega a la Final por perfil (género + edad + condición) ---
+    g1 = df_sub.groupby(["perfil", "condicion"])["es_final"].mean().round(1).reset_index()
+    g1 = g1.sort_values("es_final")
+    fig1 = px.bar(
+        g1, x="es_final", y="perfil", color="condicion", orientation="h", text_auto=".1f",
+        color_discrete_map=COLOR_VULNERABLE, labels=etiquetas,
+        category_orders={"perfil": g1["perfil"].tolist(), "condicion": ORDEN_VULNERABLE},
+    )
+    grafica1 = a_html(fig1, alto=420)
+
+    perfil_max = g1.iloc[-1]["perfil"] if len(g1) else "Sin datos"
+    pct_perfil_max = round(float(g1.iloc[-1]["es_final"]), 1) if len(g1) else 0
+    perfil_min = g1.iloc[0]["perfil"] if len(g1) else "Sin datos"
+    pct_perfil_min = round(float(g1.iloc[0]["es_final"]), 1) if len(g1) else 0
+
+    # --- Gráfica 3.2: % que llega a la Final por deporte, hombres y mujeres ---
+    conteo = df_ambos.groupby(["deporte", "genero"])["es_final"].agg(["mean", "size"]).unstack()
+    conteo = conteo[(conteo["size"] >= MIN_REGISTROS_DEPORTE_P3).all(axis=1)]
+    orden_deportes = conteo["mean"].mean(axis=1).sort_values().index.tolist()
+    g2 = (df_ambos[df_ambos["deporte"].isin(orden_deportes)]
+          .groupby(["deporte", "genero"])["es_final"].mean().round(1).reset_index())
+    fig2 = px.bar(
+        g2, x="es_final", y="deporte", color="genero", barmode="group",
+        orientation="h", text_auto=".0f",
+        category_orders={"deporte": orden_deportes, "genero": ["Hombre", "Mujer"]},
+        color_discrete_map=COLOR_GENERO, labels=etiquetas,
+    )
+    grafica2 = a_html(fig2, alto=max(400, 40 * len(orden_deportes)))
+
+    # --- Gráfica 3.3: % que llega a la Final por subregión y año, según condición ---
+    g3 = df_edad.groupby(["subregion_h", "año", "condicion"])["es_final"].mean().round(1).reset_index()
+    g3["año"] = g3["año"].astype(str)
+    fig3 = px.density_heatmap(
+        g3, x="año", y="subregion_h", z="es_final", histfunc="avg",
+        facet_col="condicion", text_auto=".0f", color_continuous_scale="Blues",
+        category_orders={"condicion": ORDEN_VULNERABLE, "año": [str(a) for a in AÑOS_CON_FINAL]},
+        labels=etiquetas,
+    )
+    fig3.update_layout(coloraxis_colorbar_title="% Final")
+    grafica3 = a_html(fig3, alto=450)
+
+    return dict(
+        p3_pct_final=pct_final, p3_brecha_vulnerable=brecha_vulnerable,
+        p3_perfil_max=perfil_max, p3_pct_perfil_max=pct_perfil_max,
+        p3_perfil_min=perfil_min, p3_pct_perfil_min=pct_perfil_min,
+        p3_excluidos=excluidos,
+        p3_grafica1=grafica1, p3_grafica2=grafica2, p3_grafica3=grafica3,
+    )
+
+
+@app.route("/multivariada")
+def multivariada():
+    df = cargar_datos()
+    df["subregion_h"] = df["subregion"].replace(HOMOLOGACION_SUBREGION)
+    subregiones = sorted(df["subregion_h"].unique())
+    deportes = sorted(df["deporte"].unique())
+
+    # Lee un filtro de la URL; si el valor no es válido, usa el valor por defecto
+    def leer_filtro(nombre, opciones, por_defecto):
+        valor = request.args.get(nombre, por_defecto)
+        return valor if valor in opciones else por_defecto
+
+    # Pregunta 1: brecha de género por deporte y edad
+    p1_subregion = leer_filtro("p1_subregion", subregiones, "Todas")
+    p1_deporte = leer_filtro("p1_deporte", deportes, "Todos")
+    pregunta1 = pregunta_genero_edad(df, p1_subregion, p1_deporte)
+
+    # Pregunta 2: población vulnerable por etapa, territorio y año
+    grupos_p2 = ["Cualquier grupo"] + GRUPOS_VULNERABLES
+    p2_subregion = leer_filtro("p2_subregion", subregiones, "Todas")
+    p2_grupo = leer_filtro("p2_grupo", grupos_p2, "Cualquier grupo")
+    pregunta2 = pregunta_vulnerable(df, p2_subregion, p2_grupo)
+
+    # Pregunta 3: perfil de quienes llegan a la Final
+    edades_p3 = ["Todos"] + RANGOS_EDAD
+    p3_subregion = leer_filtro("p3_subregion", subregiones, "Todas")
+    p3_edad = leer_filtro("p3_edad", edades_p3, "Todos")
+    pregunta3 = pregunta_final(df, p3_subregion, p3_edad)
+
+    # Valores de todos los filtros, para que cada formulario conserve los de las demás preguntas
+    filtros = {
+        "p1_subregion": p1_subregion, "p1_deporte": p1_deporte,
+        "p2_subregion": p2_subregion, "p2_grupo": p2_grupo,
+        "p3_subregion": p3_subregion, "p3_edad": p3_edad,
+    }
+
+    return render_template(
+        "multivariada.html",
+        subregiones=subregiones, deportes=deportes, filtros=filtros,
+        p1_subregion=p1_subregion, p1_deporte=p1_deporte, **pregunta1,
+        grupos_p2=grupos_p2, p2_subregion=p2_subregion, p2_grupo=p2_grupo, **pregunta2,
+        edades_p3=edades_p3, p3_subregion=p3_subregion, p3_edad=p3_edad, **pregunta3,
+    )
+
+
 if __name__ == "__main__":
     app.run(debug=True)
