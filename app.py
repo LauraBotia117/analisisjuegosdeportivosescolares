@@ -10,14 +10,21 @@ app = Flask(__name__)
 DATA_PATH = os.path.join("data", "Histórico_de_participaciones.csv")
 
 
-def cargar_datos():
-    """Carga el conjunto de datos."""
+def cargar_datos(solo_con_año=True):
+    """Carga el conjunto de datos.
+
+    solo_con_año=True  -> elimina las filas sin año (comportamiento original,
+                          lo usan poblacional, temporal y multivariada).
+    solo_con_año=False -> conserva todas las filas; la dimensión territorial
+                          no depende del año, así que usa el total completo.
+    """
     df = pd.read_csv(DATA_PATH)
 
     # Convertir año a entero
     df["año"] = pd.to_numeric(df["año"], errors="coerce")
-    df = df.dropna(subset=["año"])
-    df["año"] = df["año"].astype(int)
+    if solo_con_año:
+        df = df.dropna(subset=["año"])
+        df["año"] = df["año"].astype(int)
 
     return df
 
@@ -262,104 +269,224 @@ def poblacional():
     )
 
 
+# =====================================================================
+# DIMENSIÓN TERRITORIAL (Integrante 2)
+# =====================================================================
+
+def miles(n):
+    """10214 -> '10.214'"""
+    return f"{int(n):,}".replace(",", ".")
+
+
+def coma(x, decimales=1):
+    """9.69 -> '9,7'"""
+    return f"{x:.{decimales}f}".replace(".", ",")
+
+
+def porcentaje(parte, total):
+    """10214, 53579 -> '19,06 %'"""
+    if total == 0:
+        return "0 %"
+    return coma(parte / total * 100, 2) + " %"
+
+
+def html_plotly(fig):
+    # Plotly ya se carga en base.html, por eso include_plotlyjs=False
+    return pio.to_html(fig, full_html=False, include_plotlyjs=False)
+
+
+def texto_composicion(df, top_municipios):
+    """Subregión de los municipios del top. Ej.: '5 de X, 4 de Y y 1 de Z'."""
+    mapa = df.groupby("municipio")["subregion"].agg(
+        lambda s: s.mode().iat[0] if not s.mode().empty else "Sin dato"
+    )
+    conteo = top_municipios["municipio"].map(mapa).value_counts()
+    partes = [f"{n} de {sub}" for sub, n in conteo.items()]
+    if len(partes) > 1:
+        return ", ".join(partes[:-1]) + " y " + partes[-1]
+    return partes[0] if partes else ""
+
+
+def conocimientos_territorial(df):
+    """Los 3 conocimientos evidentes, calculados con TODOS los registros."""
+    total = len(df)
+    subs = df.groupby("subregion").size().sort_values(ascending=False)
+    muns = (
+        df.groupby("municipio").size().reset_index(name="registros")
+        .sort_values("registros", ascending=False)
+    )
+    top10 = muns.head(10)
+
+    # --- Conocimiento 1: concentración por subregión
+    top3 = subs.head(3)
+    suma3 = top3.sum()
+    lista_top3 = ", ".join(
+        f"{s} ({miles(v)} registros, {porcentaje(v, total)})" for s, v in top3.items()
+    )
+    cuanto = "más de la mitad" if suma3 / total > 0.5 else "una parte importante"
+
+    k1 = {
+        "titulo": "Los registros se concentran en pocas subregiones",
+        "partes": [
+            ("Pregunta", "¿Los registros de participación se reparten de forma uniforme entre las subregiones?"),
+            ("Variables", "subregion (territorio) y la cantidad de registros."),
+            ("Procedimiento", f"Se contaron los registros de cada subregión y se dividió cada cantidad entre el total del conjunto de datos ({miles(total)} registros)."),
+            ("Evidencia", "Gráfica 1: registros por subregión, con el porcentaje de cada una sobre las barras."),
+            ("Hallazgo", f"{lista_top3}. Entre las tres reúnen el {porcentaje(suma3, total)} de los registros."),
+            ("Interpretación", f"Tres de las {len(subs)} subregiones concentran {cuanto} de los registros; la distribución territorial no es uniforme."),
+            ("Utilidad", "Permite saber en qué territorios se concentra la participación y dónde es menor, para orientar la planeación de los juegos."),
+            ("Limitación", "Un registro no equivale a una persona (un deportista puede aparecer en varios registros) y no se conoce la población escolar de cada subregión, por lo que no puede medirse qué proporción de estudiantes participa."),
+        ],
+    }
+
+    # --- Conocimiento 2: brecha entre extremos
+    mayor, menor = subs.index[0], subs.index[-1]
+    vmayor, vmenor = subs.iloc[0], subs.iloc[-1]
+    ultimas = ", ".join(subs.sort_values().head(3).index)
+
+    k2 = {
+        "titulo": "Gran diferencia entre la subregión con más y con menos registros",
+        "partes": [
+            ("Pregunta", "¿Qué tan grande es la diferencia entre los territorios extremos?"),
+            ("Variables", "subregion (territorio) y la cantidad de registros."),
+            ("Procedimiento", "Se comparó la subregión con más registros con la que tiene menos, en cantidad absoluta (resta) y como razón (división)."),
+            ("Evidencia", "Gráfica 1: barras ordenadas de mayor a menor."),
+            ("Hallazgo", f"{mayor} tiene {miles(vmayor)} registros y {menor} {miles(vmenor)}: una diferencia de {miles(vmayor - vmenor)}. {mayor} tiene unas {coma(vmayor / vmenor)} veces los registros de {menor}, que aporta solo el {porcentaje(vmenor, total)}."),
+            ("Interpretación", "Hay territorios con una representación muy baja frente al resto del conjunto de datos."),
+            ("Utilidad", f"Permite identificar las subregiones menos representadas ({ultimas}) para revisar si el vacío se debe a menor participación o a menor registro de los datos."),
+            ("Limitación", "Los datos no explican la causa de la diferencia. Además, las subregiones cambiaron en 2024: desde ese año Norte se agrupa con Bajo Cauca y Nordeste con Magdalena Medio, por lo que los registros de una misma zona están repartidos entre varias categorías según el año."),
+        ],
+    }
+
+    # --- Conocimiento 3: concentración municipal
+    m1, m2 = muns.iloc[0], muns.iloc[1]
+    k3 = {
+        "titulo": "La concentración también se observa en los municipios",
+        "partes": [
+            ("Pregunta", "¿La concentración territorial también se observa a nivel de municipio?"),
+            ("Variables", "municipio y subregion (territorio)."),
+            ("Procedimiento", "Se contaron los registros por municipio, se tomaron los 10 con más registros y se identificó la subregión de cada uno."),
+            ("Evidencia", "Gráfica 2: top 10 de municipios por cantidad de registros."),
+            ("Hallazgo", f"{m1['municipio']} ({miles(m1['registros'])}) y {m2['municipio']} ({miles(m2['registros'])}) son los municipios con más registros. Entre los 10 primeros hay {texto_composicion(df, top10)}, y juntos reúnen el {porcentaje(top10['registros'].sum(), total)} de los registros."),
+            ("Interpretación", "Pocos municipios, ubicados en pocas subregiones, aportan una parte importante de los registros. Urabá no depende de un solo municipio: varios aparecen entre los primeros."),
+            ("Utilidad", "Indica en qué municipios se concentra la actividad y dónde conviene mirar con más detalle."),
+            ("Limitación", f"Se comparan {df['municipio'].nunique()} municipios de tamaños muy distintos y no se dispone de su población escolar, por lo que no puede decirse en cuáles participan proporcionalmente más estudiantes."),
+        ],
+    }
+
+    return [k1, k2, k3]
+
+
 @app.route("/territorial")
 def territorial():
-    df = cargar_datos()
+    df_completo = cargar_datos(solo_con_año=False)
+    df = df_completo
 
     # Filtros recibidos desde la página
     año = request.args.get("año", "Todos")
     subregion_filtro = request.args.get("subregion", "Todas")
 
-    # Aplicar filtro de año
-    if año != "Todos":
+    if año.isdigit():
         df = df[df["año"] == int(año)]
+    else:
+        año = "Todos"
 
-    # Aplicar filtro de subregión
     if subregion_filtro != "Todas":
         df = df[df["subregion"] == subregion_filtro]
 
     # -----------------------------
     # INDICADORES
     # -----------------------------
-
     total_registros = len(df)
     municipios = df["municipio"].nunique()
     subregiones = df["subregion"].nunique()
 
     # -----------------------------
-    # GRÁFICA 1
-    # Registros por subregión
+    # GRÁFICA 1: registros por subregión
     # -----------------------------
-
     datos_subregion = (
         df.groupby("subregion")
         .size()
         .reset_index(name="registros")
         .sort_values("registros", ascending=False)
     )
+    datos_subregion["porcentaje"] = (
+        datos_subregion["registros"] / max(total_registros, 1) * 100
+    ).round(2)
 
     fig_subregion = px.bar(
         datos_subregion,
         x="subregion",
         y="registros",
+        text="porcentaje",
         title="Registros de participación por subregión",
-        labels={
-            "subregion": "Subregión",
-            "registros": "Cantidad de registros"
-        }
+        labels={"subregion": "Subregión", "registros": "Cantidad de registros"},
     )
+    fig_subregion.update_traces(
+        texttemplate="%{text} %", textposition="outside", cliponaxis=False
+    )
+    fig_subregion.update_layout(xaxis_tickangle=-45)
 
-    fig_subregion.update_layout(
-        xaxis_tickangle=-45
-    )
-
-    grafica_subregion = pio.to_html(
-        fig_subregion,
-        full_html=False,
-        include_plotlyjs="cdn"
-    )
+    if total_registros == 0:
+        subregion_lider = "Sin datos"
+        interp_subregion = "No hay registros con los filtros seleccionados."
+    else:
+        lider = datos_subregion.iloc[0]
+        subregion_lider = f"{lider['subregion']} ({porcentaje(lider['registros'], total_registros)})"
+        if len(datos_subregion) == 1:
+            interp_subregion = (
+                f"Con los filtros aplicados solo aparece {lider['subregion']}, "
+                f"con {miles(lider['registros'])} registros."
+            )
+        else:
+            menor = datos_subregion.iloc[-1]
+            top3 = datos_subregion.head(3)
+            interp_subregion = (
+                f"{lider['subregion']} tiene la mayor cantidad de registros "
+                f"({miles(lider['registros'])}; {porcentaje(lider['registros'], total_registros)}) y "
+                f"{menor['subregion']} la menor ({miles(menor['registros'])}; "
+                f"{porcentaje(menor['registros'], total_registros)}). Las tres primeras subregiones "
+                f"reúnen el {porcentaje(top3['registros'].sum(), total_registros)} de los registros, "
+                "por lo que la distribución no es uniforme."
+            )
 
     # -----------------------------
-    # GRÁFICA 2
-    # Top 10 municipios
+    # GRÁFICA 2: top 10 municipios
     # -----------------------------
-
-    datos_municipios = (
+    top_municipios = (
         df.groupby("municipio")
         .size()
         .reset_index(name="registros")
         .sort_values("registros", ascending=False)
         .head(10)
-        .sort_values("registros")
     )
 
     fig_municipios = px.bar(
-        datos_municipios,
+        top_municipios.sort_values("registros"),
         x="registros",
         y="municipio",
         orientation="h",
         title="Top 10 municipios por cantidad de registros",
-        labels={
-            "municipio": "Municipio",
-            "registros": "Cantidad de registros"
-        }
+        labels={"municipio": "Municipio", "registros": "Cantidad de registros"},
     )
 
-    grafica_municipios = pio.to_html(
-        fig_municipios,
-        full_html=False,
-        include_plotlyjs=False
-    )
+    if total_registros == 0:
+        interp_municipios = "No hay registros con los filtros seleccionados."
+    else:
+        primero = top_municipios.iloc[0]
+        interp_municipios = (
+            f"{primero['municipio']} es el municipio con más registros "
+            f"({miles(primero['registros'])}; {porcentaje(primero['registros'], total_registros)}). "
+            f"Los {len(top_municipios)} primeros reúnen el "
+            f"{porcentaje(top_municipios['registros'].sum(), total_registros)} de los registros: "
+            f"{texto_composicion(df, top_municipios)}."
+        )
 
     # -----------------------------
-    # GRÁFICA 3
-    # Subregión × género
+    # GRÁFICA 3: subregión x género
     # -----------------------------
-
     datos_genero = (
-        df.groupby(["subregion", "genero"])
-        .size()
-        .reset_index(name="registros")
+        df.groupby(["subregion", "genero"]).size().reset_index(name="registros")
     )
 
     fig_genero = px.bar(
@@ -369,45 +496,68 @@ def territorial():
         color="genero",
         barmode="stack",
         title="Distribución de registros por subregión y género",
-        labels={
-            "subregion": "Subregión",
-            "registros": "Cantidad de registros",
-            "genero": "Género"
-        }
+        labels={"subregion": "Subregión", "registros": "Cantidad de registros", "genero": "Género"},
     )
+    fig_genero.update_layout(xaxis_tickangle=-45)
 
-    fig_genero.update_layout(
-        xaxis_tickangle=-45
-    )
-
-    grafica_genero = pio.to_html(
-        fig_genero,
-        full_html=False,
-        include_plotlyjs=False
-    )
+    interp_genero = "No hay registros con los filtros seleccionados."
+    if total_registros:
+        tabla = datos_genero.pivot(
+            index="subregion", columns="genero", values="registros"
+        ).fillna(0)
+        if {"Hombre", "Mujer"} <= set(tabla.columns):
+            hm = tabla["Hombre"] + tabla["Mujer"]
+            pct_mujer = (tabla["Mujer"] / hm.where(hm > 0) * 100).dropna()
+            total_hm = tabla["Hombre"].sum() + tabla["Mujer"].sum()
+            interp_genero = (
+                f"Las mujeres representan el {porcentaje(tabla['Mujer'].sum(), total_hm)} "
+                "de los registros con género informado."
+            )
+            if len(pct_mujer) > 1:
+                interp_genero += (
+                    f" La participación femenina va de {coma(pct_mujer.min())} % en "
+                    f"{pct_mujer.idxmin()} a {coma(pct_mujer.max())} % en {pct_mujer.idxmax()}."
+                )
+            if (tabla["Hombre"] > tabla["Mujer"]).all():
+                interp_genero += " En todas las subregiones hay más registros de hombres que de mujeres."
+        else:
+            interp_genero = "La distribución de los registros varía según el género y la subregión."
 
     # -----------------------------
-    # OPCIONES DE FILTROS
+    # OPCIONES DE FILTROS Y DATOS GENERALES
     # -----------------------------
-
-    df_completo = cargar_datos()
-
-    años = sorted(df_completo["año"].unique())
+    años = sorted(df_completo["año"].dropna().astype(int).unique())
     subregiones_lista = sorted(df_completo["subregion"].dropna().unique())
+
+    total_dataset = len(df_completo)
+    menores = ", ".join(
+        f"{s} ({porcentaje(v, total_dataset)})"
+        for s, v in df_completo.groupby("subregion").size().sort_values().head(3).items()
+    )
 
     return render_template(
         "territorial.html",
         total_registros=total_registros,
         municipios=municipios,
         subregiones=subregiones,
-        grafica_subregion=grafica_subregion,
-        grafica_municipios=grafica_municipios,
-        grafica_genero=grafica_genero,
+        subregion_lider=subregion_lider,
+        grafica_subregion=html_plotly(fig_subregion),
+        grafica_municipios=html_plotly(fig_municipios),
+        grafica_genero=html_plotly(fig_genero),
+        interp_subregion=interp_subregion,
+        interp_municipios=interp_municipios,
+        interp_genero=interp_genero,
+        conocimientos=conocimientos_territorial(df_completo),
+        total_dataset=total_dataset,
+        n_municipios_total=df_completo["municipio"].nunique(),
+        n_subregiones_total=df_completo["subregion"].nunique(),
+        menores=menores,
         años=años,
         subregiones_lista=subregiones_lista,
         año_seleccionado=año,
-        subregion_seleccionada=subregion_filtro
+        subregion_seleccionada=subregion_filtro,
     )
+
 
 @app.route("/temporal")
 def temporal():
