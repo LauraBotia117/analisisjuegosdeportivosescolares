@@ -103,6 +103,31 @@
 
 <hr>
 
+<h5>Hallazgos clave y decisiones</h5>
+<p class="text-muted">
+    Cada hallazgo resume un comportamiento de la población y la decisión que permite
+    sustentar. Se recalculan con los filtros aplicados.
+</p>
+
+<div class="row">
+    {% for h in hallazgos %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 hallazgo-card">
+            <div class="card-body">
+                <h6 class="hallazgo-titulo">{{ loop.index }}. {{ h.titulo }}</h6>
+                <p class="hallazgo-cifra">{{ h.cifra }}</p>
+                <p class="hallazgo-etiqueta">{{ h.etiqueta }}</p>
+                <p><strong>Hallazgo:</strong> {{ h.hallazgo }}</p>
+                <p><strong>Decisión posible:</strong> {{ h.decision }}</p>
+                <p class="hallazgo-evidencia">Evidencia: {{ h.evidencia }}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<hr>
+
 <h5>Participación por categoría</h5>
 
 <table class="table table-sm table-striped">
@@ -126,24 +151,28 @@
 <h5>1. Distribución por género</h5>
 {{ grafica_genero|safe }}
 <p><strong>Interpretación:</strong> {{ interpretaciones.genero }}</p>
+<p><strong>Decisión posible:</strong> {{ decisiones.genero }}</p>
 
 <hr>
 
 <h5>2. Distribución por rango de edad</h5>
 {{ grafica_edad|safe }}
-<p><strong>Interpretación:</strong> {{ interpretaciones.edad }}</p>
+<p><strong>Interpretación:</strong> 
+<p><strong>Decisión posible:</strong> {{ decisiones.edad }}</p>
 
 <hr>
 
 <h5>3. Deportes con mayor participación</h5>
 {{ grafica_deporte|safe }}
 <p><strong>Interpretación:</strong> {{ interpretaciones.deporte }}</p>
+<p><strong>Decisión posible:</strong> {{ decisiones.deporte }}</p>
 
 <hr>
 
 <h5>4. Poblaciones diferenciales</h5>
 {{ grafica_poblacion|safe }}
 <p><strong>Interpretación:</strong> {{ interpretaciones.poblacion }}</p>
+<p><strong>Decisión posible:</strong> {{ decisiones.poblacion }}</p>
 
 <hr>
 
@@ -158,7 +187,7 @@
         <li><strong>Variables:</strong> {{ c.variables }}</li>
         <li><strong>Procedimiento:</strong> {{ c.procedimiento }}</li>
         <li><strong>Evidencia:</strong> {{ c.evidencia }}</li>
-        <li><strong>Hallazgo:</strong> {{ c.hallazgo }}</li>
+        <li class="hallazgo-destacado"><strong>Hallazgo:</strong> {{ c.hallazgo }}</li>
         <li><strong>Interpretación:</strong> {{ c.interpretacion }}</li>
         <li><strong>Utilidad:</strong> {{ c.utilidad }}</li>
         <li><strong>Limitación:</strong> {{ c.limitacion }}</li>
@@ -176,12 +205,33 @@
     puede medir qué proporción de los estudiantes participa.
 </p>
 
-<h5>Decisión sustentada en los datos</h5>
+<h5>Decisiones sustentadas en los datos</h5>
 <p>
-    Dado que la participación se concentra en edades de 8 a 15 años y en pocos deportes, y que
-    existe una diferencia entre hombres y mujeres, se podría priorizar el apoyo a los deportes
-    con menor participación y diseñar estrategias de convocatoria dirigidas a las mujeres,
-    verificando antes el detalle por deporte y territorio en las otras dimensiones.
+    Cada decisión se apoya en un hallazgo y en su cifra de respaldo (se recalculan con los filtros).
+</p>
+
+<table class="table table-sm table-striped">
+    <thead>
+        <tr>
+            <th>Hallazgo</th>
+            <th>Cifra de respaldo</th>
+            <th>Decisión posible</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for h in hallazgos %}
+        <tr>
+            <td>{{ h.titulo }}</td>
+            <td>{{ h.cifra }}</td>
+            <td>{{ h.decision }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p class="text-muted">
+    Antes de aplicar estas decisiones conviene verificar el detalle por deporte y territorio
+    en las dimensiones territorial y multivariada.
 </p>
 
 {% endif %}
